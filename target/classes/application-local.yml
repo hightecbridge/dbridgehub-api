@@ -1,0 +1,12 @@
+# ── 선택: 로컬 개발 전용 (기본 타겟 RDS 를 쓰지 않을 때만) ─────────────────
+# 실제 운영/기본 DB 는 application.yml 의 RDS 입니다. 이 파일은 profile=local 일 때만 적용됩니다.
+# Docker Postgres(api/docker-compose 의 postgres) 또는 PC 로컬 DB 로 붙일 때:
+#   docker compose up -d postgres
+#   IDE: --spring.profiles.active=local  또는 SPRING_PROFILES_ACTIVE=local
+# DB_URL 미지정 시 기본은 로컬 Postgres(IDE + docker compose 로 띄운 PC 의 5432).
+# Docker 이미지/compose 에서는 SPRING_PROFILES_ACTIVE=default 로 두어 이 파일이 적용되지 않게 함.
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/hiacademy}
+    username: ${DB_USERNAME:hiacademy}
+    password: ${DB_PASSWORD:hiacademy123}

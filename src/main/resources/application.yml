@@ -1,0 +1,58 @@
+# ── 기본 DB 타겟(운영·Docker·환경변수 미지정 시) ─────────────────
+# 아래 RDS 가 실제 사용해야 할 데이터베이스입니다. 다른 주소로 바꿀 때는 DB_URL 등 환경변수로 덮어씁니다.
+# 로컬 전용 Postgres 는 spring.profiles.active=local (application-local.yml) 참고.
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://database-1.cv8wy8qw2jbe.ap-northeast-2.rds.amazonaws.com:5432/postgres}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:RaE6gHu5eD7xwBW}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:10}
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: public
+    open-in-view: false
+  jackson:
+    time-zone: Asia/Seoul
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: ${PORT:8080}
+  servlet:
+    # 공통 게이트웨이: 제품별 경로는 컨트롤러에서 /academy, /platform 등으로 구분
+    context-path: /api
+
+# AWS ALB/NLB 헬스 체크: 공통 플랫폼 경로 → /api/platform/health (ServicePaths.PLATFORM 과 동일 접두)
+management:
+  endpoints:
+    web:
+      base-path: /platform
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:HiAcademySecretKey2024VeryLongSecretKeyForJWT256Bits!}
+    expiration-ms: 86400000
+    parent-expiration-ms: 604800000
+
+logging:
+  level:
+    com.hiacademy: ${LOG_LEVEL:INFO}
+    org.springframework.security: WARN

@@ -1,0 +1,6 @@
+# profile=docker 일 때만 로드. localhost 를 쓰는 application-local.yml 과 분리됨.
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://database-1.cv8wy8qw2jbe.ap-northeast-2.rds.amazonaws.com:5432/postgres}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:RaE6gHu5eD7xwBW}}

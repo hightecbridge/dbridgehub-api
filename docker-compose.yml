@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hiacademy-db
+    environment:
+      # 공식 이미지: 최초 init 시 POSTGRES_PASSWORD 가 비어 있으면 이 컨테이너는 시작하지 않음.
+      # .env 에 POSTGRES_PASSWORD= 처럼 빈 줄만 두지 말 것(그 경우 빈 값이 전달됨). 필요 시 이 줄을 지우거나 값을 채움.
+      POSTGRES_DB: hiacademy
+      POSTGRES_USER: hiacademy
+      POSTGRES_PASSWORD: "hiacademy123"
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hiacademy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API 기본 DB = application.yml 과 동일한 RDS 타겟. 보안그룹/VPC 에서 접근 가능해야 함.
+  api:
+    build: .
+    container_name: dbridgehub-api
+    environment:
+      # 실제 적용은 Dockerfile 의 -Dspring.profiles.active=docker (application-docker.yml, RDS 만)
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://database-1.cv8wy8qw2jbe.ap-northeast-2.rds.amazonaws.com:5432/postgres"
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: RaE6gHu5eD7xwBW
+      DB_URL: "jdbc:postgresql://database-1.cv8wy8qw2jbe.ap-northeast-2.rds.amazonaws.com:5432/postgres"
+      DB_USERNAME: postgres
+      DB_PASSWORD: RaE6gHu5eD7xwBW
+      JWT_SECRET: HiAcademySecretKey2024VeryLongSecretKeyForJWT256bits
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:
