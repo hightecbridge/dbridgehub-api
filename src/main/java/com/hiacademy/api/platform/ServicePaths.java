@@ -23,5 +23,8 @@ public final class ServicePaths {
     /** 학원(academy) 서비스 — 어드민·학부모 API. */
     public static final String ACADEMY = "/academy";
 
+    /** 디브릿지허브 홈페이지 전용 API 접두사. */
+    public static final String HOMEPAGE = "/homepage";
+
     // 다른 제품군 추가 시: public static final String OTHER = "/other-service";
 }

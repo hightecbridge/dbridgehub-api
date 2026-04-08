@@ -22,7 +22,10 @@ public class NoticeService {
     private static final Logger log = LoggerFactory.getLogger(NoticeService.class);
     private final NoticeRepository  noticeRepo;
     private final AcademyRepository academyRepo;
-    public NoticeService(NoticeRepository n, AcademyRepository a) { noticeRepo=n; academyRepo=a; }
+    private final ExpoPushService   expoPushSvc;
+    public NoticeService(NoticeRepository n, AcademyRepository a, ExpoPushService expoPushSvc) {
+        noticeRepo=n; academyRepo=a; this.expoPushSvc=expoPushSvc;
+    }
     @Transactional(readOnly=true)
     public NoticePageResponse list(Long academyId, int page, int size, String target, String q) {
         String targetNorm = (target == null || target.isBlank()) ? null : target;
@@ -72,9 +75,15 @@ public class NoticeService {
             imageUrl = null;
             imageData = rawImage;
         }
-        return Mapper.toNotice(noticeRepo.save(NoticeItem.builder()
+        NoticeItem saved = noticeRepo.save(NoticeItem.builder()
             .title(req.getTitle()).body(req.getBody()).targets(req.getTargets())
-            .imageUrl(imageUrl).imageData(imageData).date(dateStr).academy(a).build()));
+            .imageUrl(imageUrl).imageData(imageData).date(dateStr).academy(a).build());
+        try {
+            expoPushSvc.sendNoticeCreated(academyId, saved.getId(), saved.getTitle(), saved.getBody(), saved.getTargets());
+        } catch (Exception e) {
+            log.warn("[NoticeService] Expo push failed after create noticeId={}: {}", saved.getId(), e.getMessage());
+        }
+        return Mapper.toNotice(saved);
     }
     public void delete(Long academyId, Long id) {
         noticeRepo.delete(noticeRepo.findByIdAndAcademy_Id(id,academyId)

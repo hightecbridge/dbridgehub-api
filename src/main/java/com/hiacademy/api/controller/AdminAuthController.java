@@ -15,6 +15,8 @@ public class AdminAuthController {
     public ApiResponse<AuthResponse> signup(@Valid @RequestBody AdminSignupRequest req) { return ApiResponse.ok("회원가입 성공",svc.signup(req)); }
     @PostMapping("/login")
     public ApiResponse<AuthResponse> login(@Valid @RequestBody AdminLoginRequest req) { return ApiResponse.ok(svc.login(req)); }
+    @GetMapping("/me")
+    public ApiResponse<AuthResponse> me(Authentication auth) { return ApiResponse.ok(svc.getMe(AuthHelper.subjectId(auth))); }
     @PutMapping("/profile")
     public ApiResponse<AuthResponse> updateProfile(Authentication auth, @RequestBody UpdateProfileRequest req) { return ApiResponse.ok("프로필 수정 완료",svc.updateProfile(AuthHelper.subjectId(auth),req)); }
     @PatchMapping("/password")

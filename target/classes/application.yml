@@ -46,6 +46,12 @@ management:
       probes:
         enabled: true
 
+# Expo Push (공지 등록 시 학부모 앱 알림)
+expo:
+  push:
+    enabled: ${EXPO_PUSH_ENABLED:true}
+    api-url: ${EXPO_PUSH_API_URL:https://exp.host/--/api/v2/push/send}
+
 app:
   jwt:
     secret: ${JWT_SECRET:HiAcademySecretKey2024VeryLongSecretKeyForJWT256Bits!}

@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
+
 @Service @Transactional
 public class AdminAuthService {
     private final UserRepository    userRepo;
@@ -24,7 +26,12 @@ public class AdminAuthService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,"이미 사용 중인 이메일입니다.");
         Academy academy = academyRepo.save(Academy.builder()
             .name(req.getAcademyName()).address(req.getAcademyAddress())
-            .description(req.getAcademyDesc()).build());
+            .description(req.getAcademyDesc())
+            .phone(req.getPhone())
+            .trialEndsAt(LocalDateTime.now().plusDays(30))
+            .smsPoints(500)
+            .billingStatus("TRIAL")
+            .build());
         User user = userRepo.save(User.builder()
             .email(req.getEmail()).password(encoder.encode(req.getPassword()))
             .name(req.getName()).phone(req.getPhone())
@@ -53,6 +60,12 @@ public class AdminAuthService {
         }
         return build(userRepo.save(user), a);
     }
+    public AuthResponse getMe(Long userId) {
+        User user = userRepo.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+        return build(user, user.getAcademy());
+    }
+
     public void changePassword(Long userId, ChangePasswordRequest req) {
         User user = userRepo.findById(userId).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
         if (!encoder.matches(req.getCurrentPassword(), user.getPassword()))
