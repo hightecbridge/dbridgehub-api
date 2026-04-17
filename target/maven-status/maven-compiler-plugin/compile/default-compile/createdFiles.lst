@@ -30,8 +30,11 @@ com\hiacademy\api\service\HomepageSignupInquiryService.class
 com\hiacademy\api\dto\response\FeeResponse$FeeResponseBuilder.class
 com\hiacademy\api\dto\response\HomeworkRecordResponse$HomeworkRecordResponseBuilder.class
 com\hiacademy\api\dto\request\MessageSendLogRequest.class
+com\hiacademy\api\dto\response\BillingPaymentResponse$BillingPaymentResponseBuilder.class
+com\hiacademy\api\entity\BillingPaymentLog$BillingPaymentLogBuilder.class
 com\hiacademy\api\dto\response\EventResponse$EventResponseBuilder.class
 com\hiacademy\api\dto\request\ChangePasswordRequest.class
+com\hiacademy\api\repository\BillingPaymentLogRepository.class
 com\hiacademy\api\dto\request\ParentSignupRequest.class
 com\hiacademy\api\dto\response\SenderNumberResponse$SenderNumberResponseBuilder.class
 com\hiacademy\api\controller\GlobalExceptionHandler.class
@@ -47,6 +50,7 @@ com\hiacademy\api\entity\HomepageConsult.class
 com\hiacademy\api\controller\NoticeController.class
 com\hiacademy\api\entity\NoticeItem.class
 com\hiacademy\api\entity\SenderNumberItem$SenderNumberItemBuilder.class
+com\hiacademy\api\billing\BillingPlanLimits.class
 com\hiacademy\api\entity\HomepageSignupInquiry$HomepageSignupInquiryBuilder.class
 com\hiacademy\api\entity\Consultation.class
 com\hiacademy\api\dto\request\HomeworkSheetRequest.class
@@ -70,10 +74,12 @@ com\hiacademy\api\entity\HomepageParentInquiry.class
 com\hiacademy\api\dto\response\AuthResponse$AuthResponseBuilder.class
 com\hiacademy\api\dto\response\AcademyInfo$AcademyInfoBuilder.class
 com\hiacademy\api\entity\Consultation$ConsultationBuilder.class
+com\hiacademy\api\entity\BillingPaymentLog.class
 com\hiacademy\api\repository\ParentRepository.class
 com\hiacademy\api\entity\MessageSendKind.class
 com\hiacademy\api\repository\HomeworkRecordRepository.class
 com\hiacademy\api\dto\response\ParentHomeResponse.class
+com\hiacademy\api\dto\request\BillingPointChargeRequest.class
 com\hiacademy\api\entity\AttendSheet.class
 com\hiacademy\api\entity\NoticeItem$NoticeItemBuilder.class
 com\hiacademy\api\entity\HomepageParentInquiry$HomepageParentInquiryBuilder.class
@@ -88,6 +94,7 @@ com\hiacademy\api\config\HttpClientConfig.class
 com\hiacademy\api\dto\request\HomepageSignupInquiryRequest.class
 com\hiacademy\api\dto\response\ClassRoomResponse.class
 com\hiacademy\api\controller\HomeworkController.class
+com\hiacademy\api\dto\response\BillingPaymentResponse.class
 com\hiacademy\api\security\TokenDetails.class
 com\hiacademy\api\config\DockerDataSourceLogger.class
 com\hiacademy\api\entity\Student$StudentBuilder.class
@@ -148,6 +155,7 @@ com\ApiApplication.class
 com\hiacademy\api\entity\HomeworkRecord.class
 com\hiacademy\api\dto\response\MessageSendLogResponse.class
 com\hiacademy\api\security\JwtAuthFilter.class
+com\hiacademy\api\dto\request\BillingSubscribeRequest.class
 com\hiacademy\api\dto\request\ParentLoginRequest.class
 com\hiacademy\api\dto\response\NoticeResponse.class
 com\hiacademy\api\controller\AdminBillingController.class

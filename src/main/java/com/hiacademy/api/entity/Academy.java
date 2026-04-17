@@ -16,13 +16,18 @@ public class Academy {
     @Column(columnDefinition = "TEXT") private String description;
     private String phone;
     @Column(columnDefinition = "TEXT") private String logoBase64;
-    /** 무료 체험 종료 시각 (가입 시 +30일). */
+    /** 臾대즺 泥댄뿕 醫낅즺 ?쒓컖 (媛????+30??. */
     private LocalDateTime trialEndsAt;
-    /** 문자 발송용 포인트(일반·결제 안내 등 차감). */
+    /** ?좊즺 援щ룆 ?댁슜 留뚮즺 ?쒓컖(?붋룹뿰 寃곗젣 ???곗옣). */
+    private LocalDateTime subscriptionEndsAt;
+    /** 臾몄옄 諛쒖넚???ъ씤???쇰컲쨌寃곗젣 ?덈궡 ??李④컧). */
     private Integer smsPoints;
     /** TRIAL | ACTIVE | PAST_DUE */
     @Column(length = 20)
     private String billingStatus;
+    /** standard | premium | enterprise ??援щ룆 ????? ?숈깮 ?깅줉 ?곹븳???ъ슜 */
+    @Column(length = 32)
+    private String billingPlanId;
     @CreationTimestamp private LocalDateTime createdAt;
     @UpdateTimestamp   private LocalDateTime updatedAt;
 }

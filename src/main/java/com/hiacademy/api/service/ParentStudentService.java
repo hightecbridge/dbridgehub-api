@@ -1,4 +1,5 @@
 package com.hiacademy.api.service;
+import com.hiacademy.api.billing.BillingPlanLimits;
 import com.hiacademy.api.dto.request.*;
 import com.hiacademy.api.dto.response.*;
 import com.hiacademy.api.entity.*;
@@ -41,6 +42,14 @@ public class ParentStudentService {
     public StudentResponse addStudent(Long academyId, Long parentId, StudentRequest req) {
         Parent parent = parentRepo.findByIdAndAcademy_Id(parentId,academyId)
             .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
+        Academy academy = academyRepo.findById(academyId)
+            .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
+        long rosterCount = studentRepo.countByAcademyIdExcludingWithdrawn(academyId, StudentStatus.퇴원);
+        int max = BillingPlanLimits.maxStudents(academy.getBillingPlanId());
+        if (!BillingPlanLimits.isUnlimited(max) && rosterCount >= max) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "요금제에 따른 학생 등록 한도(" + max + "명)에 도달했습니다. 상위 요금제로 변경해 주세요.");
+        }
         ClassRoom cls = clsRepo.findByIdAndAcademy_Id(req.getClassroomId(),academyId)
             .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"반을 찾을 수 없습니다."));
         Student st = studentRepo.save(Student.builder()
