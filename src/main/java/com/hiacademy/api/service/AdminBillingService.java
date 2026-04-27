@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -25,6 +26,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -39,9 +41,11 @@ public class AdminBillingService {
     private final AcademyRepository academyRepo;
     private final StudentRepository studentRepo;
     private final BillingPaymentLogRepository paymentLogRepo;
+    private final JdbcTemplate jdbcTemplate;
 
     public BillingSummaryResponse getSummary(Long academyId) {
         Academy a = loadAndMigrate(academyId);
+        SmsCosts smsCosts = loadSmsCosts();
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime trialEnd = a.getTrialEndsAt();
         boolean trialActive = trialEnd != null && now.isBefore(trialEnd);
@@ -72,8 +76,12 @@ public class AdminBillingService {
             .paymentRequired(paymentRequired)
             .billingStatus(a.getBillingStatus())
             .smsPoints(a.getSmsPoints() != null ? a.getSmsPoints() : 0)
-            .smsCostGeneral(COST_GENERAL)
-            .smsCostPaymentNudge(COST_PAYMENT)
+            .smsCostGeneral(smsCosts.sms())
+            .smsCostKakaoAlimtalk(smsCosts.kakaoAlimtalk())
+            .smsCostSms(smsCosts.sms())
+            .smsCostLms(smsCosts.lms())
+            .smsCostMms(smsCosts.mms())
+            .smsCostPaymentNudge(smsCosts.paymentSms())
             .monthlyPriceKrw(MONTHLY_KRW)
             .billingPlanId(a.getBillingPlanId())
             .studentCount(studentCount)
@@ -191,9 +199,10 @@ public class AdminBillingService {
 
     public BillingSummaryResponse sendSms(Long academyId, BillingSmsRequest req) {
         Academy a = loadAndMigrate(academyId);
+        SmsCosts smsCosts = loadSmsCosts();
         int cost = switch (req.getType().trim().toUpperCase()) {
-            case "GENERAL" -> COST_GENERAL;
-            case "PAYMENT_NUDGE" -> COST_PAYMENT;
+            case "GENERAL" -> smsCosts.sms();
+            case "PAYMENT_NUDGE", "PAYMENT_SMS" -> smsCosts.paymentSms();
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "type은 GENERAL 또는 PAYMENT_NUDGE 이어야 합니다.");
         };
         int pts = a.getSmsPoints() != null ? a.getSmsPoints() : 0;
@@ -205,6 +214,39 @@ public class AdminBillingService {
         log.info("[Billing] sms type={} academyId={} cost={} remaining={}", req.getType(), academyId, cost, a.getSmsPoints());
         // 실제 SMS 연동 시 여기서 발송
         return getSummary(academyId);
+    }
+
+    public SmsPointDeductionResult deductSmsPoints(Long academyId, String messageType, String recipientPhone, int recipientCount) {
+        Academy a = loadAndMigrate(academyId);
+        SmsCosts smsCosts = loadSmsCosts();
+        int count = Math.max(recipientCount, 1);
+        String normalizedType = (messageType == null ? "" : messageType.trim().toUpperCase(Locale.ROOT));
+        int perCost = switch (normalizedType) {
+            case "PAYMENT_SMS", "PAYMENT_NUDGE" -> smsCosts.paymentSms();
+            case "KAKAO_ALIMTALK" -> smsCosts.kakaoAlimtalk();
+            case "SMS", "GENERAL" -> smsCosts.sms();
+            case "LMS" -> smsCosts.lms();
+            case "MMS" -> smsCosts.mms();
+            default -> throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "messageType은 KAKAO_ALIMTALK, PAYMENT_SMS, SMS, LMS, MMS 중 하나여야 합니다."
+            );
+        };
+        int totalCost = perCost * count;
+        int pts = a.getSmsPoints() != null ? a.getSmsPoints() : 0;
+        if (pts < totalCost) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                String.format(Locale.KOREA, "포인트가 부족합니다. 필요 %,dP / 보유 %,dP", totalCost, pts)
+            );
+        }
+        a.setSmsPoints(pts - totalCost);
+        academyRepo.save(a);
+        log.info(
+            "[Billing] deductSmsPoints academyId={} type={} recipient={} count={} cost={} remaining={}",
+            academyId, messageType, recipientPhone, count, totalCost, a.getSmsPoints()
+        );
+        return new SmsPointDeductionResult(normalizedType, totalCost, a.getSmsPoints());
     }
 
     private Academy loadAndMigrate(Long academyId) {
@@ -237,4 +279,87 @@ public class AdminBillingService {
         if (changed) academyRepo.save(a);
         return a;
     }
+
+    private SmsCosts loadSmsCosts() {
+        Map<String, Integer> costs = readSmsCostsFromCommonCodes();
+        Integer kakaoAlimtalk = costs.get("KAKAO_ALIMTALK");
+        Integer sms = costs.get("SMS");
+        Integer lms = costs.get("LMS");
+        Integer mms = costs.get("MMS");
+        Integer paymentSms = costs.get("PAYMENT_SMS");
+        if (kakaoAlimtalk == null || sms == null || lms == null || mms == null || paymentSms == null) {
+            throw new ResponseStatusException(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "문자 단가 설정이 누락되었습니다. common_codes(MESSAGE_POINT_COST)의 KAKAO_ALIMTALK/SMS/LMS/MMS/PAYMENT_SMS를 확인해 주세요."
+            );
+        }
+        return new SmsCosts(kakaoAlimtalk, sms, lms, mms, paymentSms);
+    }
+
+    private Map<String, Integer> readSmsCostsFromCommonCodes() {
+        // Try common schema variations to avoid hard dependency on one naming convention.
+        List<String> queries = List.of(
+            "select code, code_value from common_codes where code_group = 'MESSAGE_POINT_COST' and use_yn = 'Y'",
+            "select code_key as code, code_value from common_codes where code_group = 'MESSAGE_POINT_COST' and use_yn = 'Y'",
+            "select code, code_value from common_codes where group_code = 'MESSAGE_POINT_COST' and use_yn = 'Y'",
+            "select code_key as code, code_value from common_codes where group_code = 'MESSAGE_POINT_COST' and use_yn = 'Y'",
+            "select code, value as code_value from common_codes where code_group = 'MESSAGE_POINT_COST' and use_yn = 'Y'",
+            "select code_key as code, value as code_value from common_codes where code_group = 'MESSAGE_POINT_COST' and use_yn = 'Y'",
+            "select code, value as code_value from common_codes where group_code = 'MESSAGE_POINT_COST' and use_yn = 'Y'",
+            "select code_key as code, value as code_value from common_codes where group_code = 'MESSAGE_POINT_COST' and use_yn = 'Y'"
+        );
+
+        ResponseStatusException lastError = null;
+        for (String sql : queries) {
+            try {
+                List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+                if (rows.isEmpty()) {
+                    continue;
+                }
+                Map<String, Integer> parsed = new java.util.HashMap<>();
+                for (Map<String, Object> row : rows) {
+                    String code = asUpperString(row.get("code"));
+                    Integer value = asPositiveInt(row.get("code_value"));
+                    if (code == null || value == null) continue;
+                    parsed.put(code, value);
+                }
+                if (!parsed.isEmpty()) return parsed;
+            } catch (Exception e) {
+                lastError = new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "문자 단가(common_codes) 조회에 실패했습니다.",
+                    e
+                );
+            }
+        }
+        if (lastError != null) {
+            throw lastError;
+        }
+        throw new ResponseStatusException(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "문자 단가(common_codes)를 찾을 수 없습니다. MESSAGE_POINT_COST 그룹 데이터를 확인해 주세요."
+        );
+    }
+
+    private static String asUpperString(Object value) {
+        if (value == null) return null;
+        String text = String.valueOf(value).trim();
+        if (text.isEmpty()) return null;
+        return text.toUpperCase(Locale.ROOT);
+    }
+
+    private static Integer asPositiveInt(Object value) {
+        if (value == null) return null;
+        try {
+            int parsed = Integer.parseInt(String.valueOf(value).trim());
+            return parsed > 0 ? parsed : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private record SmsCosts(int kakaoAlimtalk, int sms, int lms, int mms, int paymentSms) {}
+
+    public record SmsPointDeductionResult(String messageType, int deductedPoints, int remainingPoints) {}
+
 }

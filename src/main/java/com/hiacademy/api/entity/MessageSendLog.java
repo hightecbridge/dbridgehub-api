@@ -22,6 +22,11 @@ public class MessageSendLog {
     @Column(nullable = false, length = 20)
     private MessageSendKind kind;
 
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'ALIGO'")
+    private MessageGatewayProvider provider = MessageGatewayProvider.ALIGO;
+
     /** 표시용: 반명·전체·결제 등 */
     @Column(nullable = false, length = 200)
     private String targetLabel;
@@ -35,6 +40,16 @@ public class MessageSendLog {
 
     @Column(nullable = false)
     private int recipientCount;
+
+    /** 실제 발송 타입(SMS/LMS/MMS/KAKAO_ALIMTALK 등) */
+    @Column(length = 30)
+    private String messageType;
+
+    /** 해당 발송에서 차감된 포인트 */
+    private Integer deductedPoints;
+
+    /** 차감 이후 잔여 포인트 */
+    private Integer remainingPoints;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "academy_id", nullable = false)

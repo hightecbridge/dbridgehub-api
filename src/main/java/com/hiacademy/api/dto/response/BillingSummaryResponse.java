@@ -18,6 +18,10 @@ public class BillingSummaryResponse {
     private String billingStatus;
     private int smsPoints;
     private int smsCostGeneral;
+    private int smsCostKakaoAlimtalk;
+    private int smsCostSms;
+    private int smsCostLms;
+    private int smsCostMms;
     private int smsCostPaymentNudge;
     private long monthlyPriceKrw;
     /** 援щ룆 ?붽툑??(standard|premium|enterprise) */

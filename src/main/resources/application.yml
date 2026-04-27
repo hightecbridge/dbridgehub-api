@@ -58,6 +58,20 @@ app:
     expiration-ms: 86400000
     parent-expiration-ms: 604800000
 
+# NHN Cloud Notification SMS v3 (https://docs.nhncloud.com/ko/Notification/SMS/ko/api-guide/)
+nhn:
+  sms:
+    app-key: ${NHN_SMS_APP_KEY:mTbqlZ2UYHmsn4aW}
+    secret-key: ${NHN_SMS_SECRET_KEY:6l2qIuxQx4PvWwbtfFZhhchRiz8RlWZn}
+    base-url: ${NHN_SMS_BASE_URL:https://sms.api.nhncloudservice.com}
+
+aligo:
+  sms:
+    api-key: ${ALIGO_SMS_API_KEY:ewva8hfvscm0c81mbhbe03vs0h5br562}
+    user-id: ${ALIGO_SMS_USER_ID:dbridgehub}
+    base-url: ${ALIGO_SMS_BASE_URL:https://apis.aligo.in}
+    testmode-yn: ${ALIGO_SMS_TESTMODE_YN:N}
+
 logging:
   level:
     com.hiacademy: ${LOG_LEVEL:INFO}
