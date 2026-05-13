@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface BillingPaymentLogRepository extends JpaRepository<BillingPaymentLog, Long> {
     List<BillingPaymentLog> findByAcademy_IdOrderByCreatedAtDesc(Long academyId);
+    boolean existsByAcademy_IdAndOrderId(Long academyId, String orderId);
 }

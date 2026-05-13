@@ -30,4 +30,8 @@ public class BillingSummaryResponse {
     private long studentCount;
     /** ?깅줉 媛???곹븳. -1 ?대㈃ 臾댁젣???뷀꽣?꾨씪?댁쫰) */
     private int studentLimit;
+    /** 토스 빌링 등록 후 매월 자동결제 사용 여부 */
+    private boolean autoBillingEnabled;
+    /** 빌링키(정기결제 카드) 발급·등록 시각 */
+    private LocalDateTime billingKeyIssuedAt;
 }

@@ -3,6 +3,7 @@ package com.hiacademy.api.controller;
 import com.hiacademy.api.dto.request.BillingPointChargeRequest;
 import com.hiacademy.api.dto.request.BillingSmsRequest;
 import com.hiacademy.api.dto.request.BillingSubscribeRequest;
+import com.hiacademy.api.dto.request.BillingAutoSubscribeRequest;
 import com.hiacademy.api.dto.response.ApiResponse;
 import com.hiacademy.api.dto.response.BillingPaymentResponse;
 import com.hiacademy.api.dto.response.BillingSummaryResponse;
@@ -32,6 +33,11 @@ public class AdminBillingController {
     @PostMapping("/subscribe")
     public ApiResponse<BillingSummaryResponse> subscribe(Authentication auth, @RequestBody(required = false) BillingSubscribeRequest req) {
         return ApiResponse.ok("구독이 반영되었습니다.", svc.subscribe(AuthHelper.academyId(auth), req));
+    }
+
+    @PostMapping("/subscribe/auto-register")
+    public ApiResponse<BillingSummaryResponse> registerAutoBilling(Authentication auth, @RequestBody BillingAutoSubscribeRequest req) {
+        return ApiResponse.ok("정기결제가 등록되었습니다.", svc.registerAndChargeAutoBilling(AuthHelper.academyId(auth), req));
     }
 
     @PostMapping("/sms")

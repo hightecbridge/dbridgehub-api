@@ -1,6 +1,7 @@
 package com.hiacademy.api.service;
 
 import com.hiacademy.api.billing.BillingPlanLimits;
+import com.hiacademy.api.dto.request.BillingAutoSubscribeRequest;
 import com.hiacademy.api.dto.request.BillingPointChargeRequest;
 import com.hiacademy.api.dto.request.BillingSmsRequest;
 import com.hiacademy.api.dto.request.BillingSubscribeRequest;
@@ -15,11 +16,21 @@ import com.hiacademy.api.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
@@ -27,6 +38,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Base64;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +54,11 @@ public class AdminBillingService {
     private final StudentRepository studentRepo;
     private final BillingPaymentLogRepository paymentLogRepo;
     private final JdbcTemplate jdbcTemplate;
+    private final ObjectMapper objectMapper;
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    @Value("${toss.payments.secret-key:${TOSS_PAYMENTS_SECRET_KEY:}}")
+    private String tossSecretKey;
 
     public BillingSummaryResponse getSummary(Long academyId) {
         Academy a = loadAndMigrate(academyId);
@@ -86,6 +103,8 @@ public class AdminBillingService {
             .billingPlanId(a.getBillingPlanId())
             .studentCount(studentCount)
             .studentLimit(studentLimit)
+            .autoBillingEnabled(Boolean.TRUE.equals(a.getAutoBillingEnabled()))
+            .billingKeyIssuedAt(a.getBillingKeyIssuedAt())
             .build();
     }
 
@@ -118,11 +137,54 @@ public class AdminBillingService {
         return getSummary(academyId);
     }
 
+    /** 카드 등록 성공 후 빌링키를 발급/저장하고 최초 1회 청구 + 구독 반영 */
+    public BillingSummaryResponse registerAndChargeAutoBilling(Long academyId, BillingAutoSubscribeRequest req) {
+        if (req == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "자동결제 요청값이 필요합니다.");
+        }
+        if (req.getCustomerKey() == null || req.getCustomerKey().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "customerKey가 필요합니다.");
+        }
+        if (req.getCardNumber() == null || req.getCardNumber().isBlank()
+            || req.getCardExpirationYear() == null || req.getCardExpirationYear().isBlank()
+            || req.getCardExpirationMonth() == null || req.getCardExpirationMonth().isBlank()
+            || req.getCustomerIdentityNumber() == null || req.getCustomerIdentityNumber().isBlank()
+            || req.getCardPassword() == null || req.getCardPassword().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "카드 정보(cardNumber, cardExpirationYear, cardExpirationMonth, customerIdentityNumber, cardPassword)가 필요합니다.");
+        }
+        Academy a = loadAndMigrate(academyId);
+        TossBillingKeyIssueResult issue = issueBillingKey(req);
+        a.setTossCustomerKey(req.getCustomerKey());
+        a.setTossAuthKey(null);
+        a.setTossBillingKey(issue.billingKey());
+        a.setAutoBillingEnabled(true);
+        a.setBillingKeyIssuedAt(LocalDateTime.now());
+        if (req.getPlanId() != null && !req.getPlanId().isBlank()) {
+            a.setBillingPlanId(BillingPlanLimits.normalizePlanId(req.getPlanId()));
+        }
+        academyRepo.save(a);
+
+        long amount = req.getPaidAmountKrw() != null && req.getPaidAmountKrw() > 0
+            ? req.getPaidAmountKrw()
+            : monthlyAmountForPlan(a.getBillingPlanId());
+        String orderId = req.getOrderId() != null && !req.getOrderId().isBlank()
+            ? req.getOrderId()
+            : "SUB-REG-" + academyId + "-" + System.currentTimeMillis();
+        chargeWithBillingKey(issue.billingKey(), req.getCustomerKey(), amount, orderId, "하이아카데미 정기결제");
+
+        BillingSubscribeRequest subscribeReq = new BillingSubscribeRequest();
+        subscribeReq.setPlanId(a.getBillingPlanId());
+        subscribeReq.setBillingCycle("MONTHLY");
+        subscribeReq.setOrderId(orderId);
+        subscribeReq.setPaidAmountKrw(amount);
+        return subscribe(academyId, subscribeReq);
+    }
+
     /** 포인트 충전(결제 완료 후 호출). */
     public BillingSummaryResponse chargePoints(Long academyId, BillingPointChargeRequest req) {
         int pts = req.getPoints();
-        if (pts != 10_000 && pts != 20_000 && pts != 30_000) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "충전 금액은 10,000 / 20,000 / 30,000원만 가능합니다.");
+        if (pts != 5_000 && pts != 10_000 && pts != 20_000 && pts != 30_000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "충전 금액은 5,000 / 10,000 / 20,000 / 30,000원(VAT 포함)만 가능합니다.");
         }
         Academy a = loadAndMigrate(academyId);
         int cur = a.getSmsPoints() != null ? a.getSmsPoints() : 0;
@@ -138,6 +200,42 @@ public class AdminBillingService {
             .build());
         log.info("[Billing] chargePoints academyId={} points={}", academyId, pts);
         return getSummary(academyId);
+    }
+
+    /** 매일 새벽 만료된 구독을 자동 청구(중복 방지용 월별 orderId 사용) */
+    @Scheduled(cron = "0 15 3 * * *", zone = "Asia/Seoul")
+    public void runAutoBillingScheduler() {
+        if (tossSecretKey == null || tossSecretKey.isBlank()) {
+            log.warn("[Billing] auto charge skipped: toss secret key is missing");
+            return;
+        }
+        List<Academy> academies = academyRepo.findAll();
+        LocalDateTime now = LocalDateTime.now();
+        for (Academy a : academies) {
+            try {
+                if (!Boolean.TRUE.equals(a.getAutoBillingEnabled())) continue;
+                if (a.getTossBillingKey() == null || a.getTossBillingKey().isBlank() || a.getTossCustomerKey() == null || a.getTossCustomerKey().isBlank()) continue;
+                if (a.getSubscriptionEndsAt() == null || now.isBefore(a.getSubscriptionEndsAt())) continue;
+
+                String monthlyOrderId = "AUTO-" + a.getId() + "-" + now.format(DateTimeFormatter.ofPattern("yyyyMM"));
+                if (paymentLogRepo.existsByAcademy_IdAndOrderId(a.getId(), monthlyOrderId)) continue;
+
+                long amount = monthlyAmountForPlan(a.getBillingPlanId());
+                chargeWithBillingKey(a.getTossBillingKey(), a.getTossCustomerKey(), amount, monthlyOrderId, "하이아카데미 월 자동청구");
+
+                BillingSubscribeRequest req = new BillingSubscribeRequest();
+                req.setPlanId(a.getBillingPlanId());
+                req.setBillingCycle("MONTHLY");
+                req.setOrderId(monthlyOrderId);
+                req.setPaidAmountKrw(amount);
+                subscribe(a.getId(), req);
+                log.info("[Billing] auto charge success academyId={} amount={} orderId={}", a.getId(), amount, monthlyOrderId);
+            } catch (Exception e) {
+                log.warn("[Billing] auto charge failed academyId={} reason={}", a.getId(), e.getMessage());
+                a.setBillingStatus("PAST_DUE");
+                academyRepo.save(a);
+            }
+        }
     }
 
     public List<BillingPaymentResponse> listPayments(Long academyId) {
@@ -179,10 +277,10 @@ public class AdminBillingService {
 
     private static String planLabel(String planId) {
         if (planId == null || planId.isBlank()) {
-            return "스탠다드";
+            return "베이직";
         }
         return switch (planId.trim().toLowerCase()) {
-            case "starter" -> "스타터";
+            case "basic" -> "베이직";
             case "standard" -> "스탠다드";
             case "premium" -> "프리미엄";
             case "enterprise" -> "엔터프라이즈";
@@ -361,5 +459,103 @@ public class AdminBillingService {
     private record SmsCosts(int kakaoAlimtalk, int sms, int lms, int mms, int paymentSms) {}
 
     public record SmsPointDeductionResult(String messageType, int deductedPoints, int remainingPoints) {}
+
+    private long monthlyAmountForPlan(String planId) {
+        String normalized = BillingPlanLimits.normalizePlanId(planId);
+        return switch (normalized) {
+            case "basic" -> 4_400L;
+            case "standard" -> 8_800L;
+            case "premium" -> 16_500L;
+            case "enterprise" -> 33_000L;
+            default -> 4_400L;
+        };
+    }
+
+    private TossBillingKeyIssueResult issueBillingKey(BillingAutoSubscribeRequest req) {
+        ensureTossSecretConfigured();
+        HttpHeaders headers = tossHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        try {
+            Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("customerKey", req.getCustomerKey());
+            payload.put("cardNumber", req.getCardNumber().replaceAll("\\s+", ""));
+            payload.put("cardExpirationYear", req.getCardExpirationYear());
+            payload.put("cardExpirationMonth", req.getCardExpirationMonth());
+            payload.put("customerIdentityNumber", req.getCustomerIdentityNumber());
+            payload.put("cardPassword", req.getCardPassword());
+            if (req.getCustomerName() != null && !req.getCustomerName().isBlank()) {
+                payload.put("customerName", req.getCustomerName());
+            }
+            if (req.getCustomerEmail() != null && !req.getCustomerEmail().isBlank()) {
+                payload.put("customerEmail", req.getCustomerEmail());
+            }
+
+            ResponseEntity<String> res = restTemplate.postForEntity(
+                "https://api.tosspayments.com/v1/billing/authorizations/card",
+                new HttpEntity<>(objectMapper.writeValueAsString(payload), headers),
+                String.class
+            );
+            JsonNode root = objectMapper.readTree(res.getBody() == null ? "{}" : res.getBody());
+            String billingKey = root.path("billingKey").asText("");
+            if (billingKey.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "토스 빌링키 발급에 실패했습니다.");
+            }
+            return new TossBillingKeyIssueResult(billingKey);
+        } catch (HttpStatusCodeException e) {
+            throw tossException("빌링키 발급 실패", e);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "토스 빌링키 발급 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    private void chargeWithBillingKey(String billingKey, String customerKey, long amount, String orderId, String orderName) {
+        ensureTossSecretConfigured();
+        HttpHeaders headers = tossHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        String payload = String.format(
+            "{\"customerKey\":\"%s\",\"amount\":%d,\"orderId\":\"%s\",\"orderName\":\"%s\"}",
+            customerKey, amount, orderId, orderName
+        );
+        try {
+            restTemplate.postForEntity(
+                "https://api.tosspayments.com/v1/billing/" + billingKey,
+                new HttpEntity<>(payload, headers),
+                String.class
+            );
+        } catch (HttpStatusCodeException e) {
+            throw tossException("자동청구 실패", e);
+        }
+    }
+
+    private HttpHeaders tossHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        String raw = tossSecretKey + ":";
+        String encoded = Base64.getEncoder().encodeToString(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        headers.set("Authorization", "Basic " + encoded);
+        return headers;
+    }
+
+    private void ensureTossSecretConfigured() {
+        if (tossSecretKey == null || tossSecretKey.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "토스 시크릿 키가 설정되지 않았습니다.");
+        }
+    }
+
+    private ResponseStatusException tossException(String prefix, HttpStatusCodeException e) {
+        String body = e.getResponseBodyAsString();
+        String message = prefix;
+        try {
+            JsonNode root = objectMapper.readTree(body == null ? "{}" : body);
+            String tossMsg = root.path("message").asText("");
+            if (!tossMsg.isBlank()) {
+                message = prefix + ": " + tossMsg;
+            }
+        } catch (Exception ignore) {
+            // ignore parse failure
+        }
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST, message, e);
+    }
+
+    private record TossBillingKeyIssueResult(String billingKey) {}
 
 }

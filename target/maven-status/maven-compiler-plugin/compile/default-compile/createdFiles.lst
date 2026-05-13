@@ -22,9 +22,11 @@ com\sms\nhn\dto\NhnRecipientDto.class
 com\hiacademy\api\dto\request\ChangePasswordRequest.class
 com\hiacademy\api\repository\BillingPaymentLogRepository.class
 com\hiacademy\api\dto\response\SenderNumberResponse$SenderNumberResponseBuilder.class
+com\hiacademy\api\service\AdminBillingService$SmsPointDeductionResult.class
 com\hiacademy\api\service\AdminBillingService$SmsCosts.class
 com\hiacademy\api\entity\HomeworkRecord$HomeworkRecordBuilder.class
 com\hiacademy\api\controller\NoticeController.class
+com\hiacademy\api\dto\request\BillingAutoSubscribeRequest.class
 com\hiacademy\api\entity\HomepageSignupInquiry$HomepageSignupInquiryBuilder.class
 com\hiacademy\api\entity\FeeRecord.class
 com\hiacademy\api\controller\AdminAuthController.class
@@ -163,6 +165,7 @@ com\hiacademy\api\entity\HomeworkSheet$HomeworkSheetBuilder.class
 com\hiacademy\api\controller\AdminParentController.class
 com\hiacademy\api\dto\response\HomeworkRecordResponse.class
 com\hiacademy\api\entity\ParentPushToken.class
+com\hiacademy\api\service\AdminBillingService$TossBillingKeyIssueResult.class
 com\hiacademy\api\dto\response\ApiResponse.class
 com\hiacademy\api\entity\ClassRoom$ClassRoomBuilder.class
 com\hiacademy\api\dto\response\AttendSheetResponse.class

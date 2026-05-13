@@ -28,6 +28,31 @@ public class Academy {
     /** standard | premium | enterprise ??援щ룆 ????? ?숈깮 ?깅줉 ?곹븳???ъ슜 */
     @Column(length = 32)
     private String billingPlanId;
+    /** 토스 정기결제 고객 식별키 */
+    @Column(length = 120)
+    private String tossCustomerKey;
+    /** 토스 빌링키(자동청구 실행용) */
+    @Column(length = 255)
+    private String tossBillingKey;
+    /** 최근 카드등록 인증키(감사/추적용) */
+    @Column(length = 255)
+    private String tossAuthKey;
+    /** 정기결제 활성 여부 */
+    private Boolean autoBillingEnabled;
+    /** 최근 빌링키 발급 시각 */
+    private LocalDateTime billingKeyIssuedAt;
     @CreationTimestamp private LocalDateTime createdAt;
     @UpdateTimestamp   private LocalDateTime updatedAt;
+
+    // Lombok annotation processing 이슈 대비: 정기결제 키 필드는 명시 메서드 제공
+    public String getTossCustomerKey() { return tossCustomerKey; }
+    public void setTossCustomerKey(String tossCustomerKey) { this.tossCustomerKey = tossCustomerKey; }
+    public String getTossBillingKey() { return tossBillingKey; }
+    public void setTossBillingKey(String tossBillingKey) { this.tossBillingKey = tossBillingKey; }
+    public String getTossAuthKey() { return tossAuthKey; }
+    public void setTossAuthKey(String tossAuthKey) { this.tossAuthKey = tossAuthKey; }
+    public Boolean getAutoBillingEnabled() { return autoBillingEnabled; }
+    public void setAutoBillingEnabled(Boolean autoBillingEnabled) { this.autoBillingEnabled = autoBillingEnabled; }
+    public LocalDateTime getBillingKeyIssuedAt() { return billingKeyIssuedAt; }
+    public void setBillingKeyIssuedAt(LocalDateTime billingKeyIssuedAt) { this.billingKeyIssuedAt = billingKeyIssuedAt; }
 }

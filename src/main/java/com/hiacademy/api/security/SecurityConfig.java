@@ -59,10 +59,13 @@ public class SecurityConfig {
                 .requestMatchers(mvc.pattern(HttpMethod.POST, "/academy/admin/auth/login")).permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/academy/admin/auth/signup").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/academy/admin/auth/login").permitAll()
+                // 학부모 앱·프록시는 전체 URL이 /api/academy/... 이므로 컨텍스트 포함 경로도 허용 (관리자와 동일 이유)
                 .requestMatchers("/academy/parent/auth/**").permitAll()
+                .requestMatchers("/api/academy/parent/auth/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/academy/parent/academy/**").permitAll()
-                .requestMatchers("/academy/admin/**").hasAnyRole("ADMIN", "TEACHER")
-                .requestMatchers("/academy/parent/**").hasRole("PARENT")
+                .requestMatchers(HttpMethod.GET, "/api/academy/parent/academy/**").permitAll()
+                .requestMatchers("/academy/admin/**", "/api/academy/admin/**").hasAnyRole("ADMIN", "TEACHER")
+                .requestMatchers("/academy/parent/**", "/api/academy/parent/**").hasRole("PARENT")
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

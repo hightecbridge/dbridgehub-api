@@ -78,6 +78,7 @@ C:\project\api\src\main\java\com\hiacademy\api\controller\NoticeController.java
 C:\project\api\src\main\java\com\hiacademy\api\repository\SenderNumberRepository.java
 C:\project\api\src\main\java\com\hiacademy\api\service\HomepageParentInquiryService.java
 C:\project\api\src\main\java\com\sms\nhn\service\SmsSendHistoryService.java
+C:\project\api\src\main\java\com\hiacademy\api\dto\request\BillingAutoSubscribeRequest.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\request\HomepageConsultRequest.java
 C:\project\api\src\main\java\com\sms\aligo\service\AligoSmsService.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\AuthResponse.java

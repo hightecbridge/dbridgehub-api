@@ -76,3 +76,7 @@ logging:
   level:
     com.hiacademy: ${LOG_LEVEL:INFO}
     org.springframework.security: WARN
+
+toss:
+  payments:
+    secret-key: ${TOSS_PAYMENTS_SECRET_KEY:test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R}
