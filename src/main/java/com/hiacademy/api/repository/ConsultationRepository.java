@@ -18,4 +18,5 @@ public interface ConsultationRepository extends JpaRepository<Consultation, Long
     @Query("SELECT c FROM Consultation c WHERE c.student.parent.id = :parentId " +
            "ORDER BY c.consultDate DESC")
     List<Consultation> findAllByParentId(@Param("parentId") Long parentId);
+    void deleteAllByStudent_Id(Long studentId);
 }

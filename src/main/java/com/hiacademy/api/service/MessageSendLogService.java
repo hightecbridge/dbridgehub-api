@@ -99,7 +99,15 @@ public class MessageSendLogService {
         request.setTitle(req.getTitle());
 
         switch (messageType) {
-            case "KAKAO_ALIMTALK", "PAYMENT_SMS", "SMS" -> aligoSmsService.sendSms(request);
+            case "KAKAO_ALIMTALK" -> aligoSmsService.sendAlimtalk(request, req.getTemplateCode());
+            case "PAYMENT_SMS" -> {
+                if (req.getTemplateCode() != null && !req.getTemplateCode().isBlank()) {
+                    aligoSmsService.sendAlimtalk(request, req.getTemplateCode());
+                } else {
+                    aligoSmsService.sendSms(request);
+                }
+            }
+            case "SMS" -> aligoSmsService.sendSms(request);
             case "LMS" -> aligoSmsService.sendLms(request);
             case "MMS" -> {
                 if (req.getAttachFiles() == null || req.getAttachFiles().isEmpty()) {

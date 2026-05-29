@@ -31,9 +31,13 @@ public class MessageSendLogRequest {
     @Min(0)
     private Integer recipientCount;
 
-    /** 실제 발송 타입(SMS/LMS/MMS). 값이 없으면 기존처럼 로그만 저장합니다. */
-    @Size(max = 10)
+    /** 실제 발송 타입(SMS/LMS/MMS/KAKAO_ALIMTALK/PAYMENT_SMS). 값이 없으면 기존처럼 로그만 저장합니다. */
+    @Size(max = 30)
     private String messageType;
+
+    /** 알림톡 템플릿 코드(예: UH_8400) */
+    @Size(max = 40)
+    private String templateCode;
 
     /** 발신 번호 */
     @Size(max = 20)

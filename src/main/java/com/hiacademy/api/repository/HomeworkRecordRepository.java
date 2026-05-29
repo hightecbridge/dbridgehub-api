@@ -17,4 +17,5 @@ public interface HomeworkRecordRepository extends JpaRepository<HomeworkRecord, 
     @Query("SELECT r FROM HomeworkRecord r JOIN r.sheet s " +
            "WHERE r.student.id = :studentId ORDER BY s.homeworkDate DESC")
     List<HomeworkRecord> findAllByStudentIdOrderByDateDesc(@Param("studentId") Long studentId);
+    void deleteAllByStudent_Id(Long studentId);
 }

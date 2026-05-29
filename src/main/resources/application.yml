@@ -26,10 +26,19 @@ spring:
     time-zone: Asia/Seoul
     serialization:
       write-dates-as-timestamps: false
+  http:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
 
 server:
   port: ${PORT:8080}
   servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
     # 공통 게이트웨이: 제품별 경로는 컨트롤러에서 /academy, /platform 등으로 구분
     context-path: /api
 
@@ -70,6 +79,8 @@ aligo:
     api-key: ${ALIGO_SMS_API_KEY:ewva8hfvscm0c81mbhbe03vs0h5br562}
     user-id: ${ALIGO_SMS_USER_ID:dbridgehub}
     base-url: ${ALIGO_SMS_BASE_URL:https://apis.aligo.in}
+    kakao-base-url: ${ALIGO_KAKAO_API_BASE_URL:https://kakaoapi.aligo.in}
+    sender-key: ${ALIGO_KAKAO_SENDER_KEY:c9ff8a2fae5ab43a3f68ac5e611421b74b600053}
     testmode-yn: ${ALIGO_SMS_TESTMODE_YN:N}
 
 logging:

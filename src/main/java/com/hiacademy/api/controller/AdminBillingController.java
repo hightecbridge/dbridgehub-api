@@ -40,6 +40,16 @@ public class AdminBillingController {
         return ApiResponse.ok("정기결제가 등록되었습니다.", svc.registerAndChargeAutoBilling(AuthHelper.academyId(auth), req));
     }
 
+    @PostMapping({"/subscribe/upgrade", "/subscribe/change-plan"})
+    public ApiResponse<BillingSummaryResponse> changePlan(Authentication auth, @RequestBody BillingSubscribeRequest req) {
+        return ApiResponse.ok("요금제가 변경되었습니다.", svc.changeBillingPlan(AuthHelper.academyId(auth), req));
+    }
+
+    @PostMapping("/billing-key/change")
+    public ApiResponse<BillingSummaryResponse> changeBillingCard(Authentication auth, @RequestBody BillingAutoSubscribeRequest req) {
+        return ApiResponse.ok("카드 정보가 변경되었습니다.", svc.changeBillingCard(AuthHelper.academyId(auth), req));
+    }
+
     @PostMapping("/sms")
     public ApiResponse<BillingSummaryResponse> sendSms(Authentication auth, @Valid @RequestBody BillingSmsRequest req) {
         return ApiResponse.ok("발송 처리되었습니다.", svc.sendSms(AuthHelper.academyId(auth), req));

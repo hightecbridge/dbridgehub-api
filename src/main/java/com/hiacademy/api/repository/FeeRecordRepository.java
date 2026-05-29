@@ -10,4 +10,5 @@ import java.util.List;
 public interface FeeRecordRepository extends JpaRepository<FeeRecord, Long> {
     List<FeeRecord> findAllByStudent_Id(Long studentId);
     List<FeeRecord> findAllByStudent_IdAndYearMonth(Long studentId, int yearMonth);
+    void deleteAllByStudent_Id(Long studentId);
 }

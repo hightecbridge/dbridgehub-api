@@ -59,6 +59,7 @@ com\hiacademy\api\dto\request\ConsultRequest.class
 com\hiacademy\api\entity\Student.class
 com\hiacademy\api\dto\response\AttendRecordResponse$AttendRecordResponseBuilder.class
 com\hiacademy\api\controller\CalendarController.class
+com\hiacademy\api\billing\TossCardCompanyNames.class
 com\hiacademy\api\dto\response\HomeworkSheetResponse.class
 com\hiacademy\api\entity\Parent.class
 com\hiacademy\api\service\HomeworkService.class
@@ -116,6 +117,7 @@ com\hiacademy\api\service\HomepageSignupInquiryService.class
 com\hiacademy\api\dto\response\FeeResponse$FeeResponseBuilder.class
 com\hiacademy\api\dto\request\MessageSendLogRequest.class
 com\sms\nhn\repository\SmsSendHistoryRepository.class
+com\hiacademy\api\service\AdminBillingService$BillingCardMeta.class
 com\hiacademy\api\dto\response\EventResponse$EventResponseBuilder.class
 com\hiacademy\api\dto\request\ParentSignupRequest.class
 com\hiacademy\api\controller\GlobalExceptionHandler.class

@@ -54,12 +54,40 @@ public class AligoSmsService {
         return send(request, "MMS", toFilePartsFromBase64(images));
     }
 
+    /** 알리고 알림톡(AT) 발송. */
+    public JsonNode sendAlimtalk(AligoSmsSendRequest request, String templateCode) {
+        if (templateCode == null || templateCode.isBlank()) {
+            throw new ResponseStatusException(BAD_REQUEST, "알림톡 발송에는 templateCode가 필요합니다.");
+        }
+        validateKakaoConfig();
+        String url = properties.getKakaoBaseUrl() + "/akv10/alimtalk/send/";
+        String sender = normalizePhone(request.getSender());
+        String receiver = normalizeReceiver(request.getReceiver());
+
+        MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        form.add("apikey", properties.getApiKey());
+        form.add("userid", properties.getUserId());
+        form.add("senderkey", properties.getSenderKey());
+        form.add("tpl_code", templateCode.trim());
+        form.add("sender", sender);
+        form.add("receiver_1", receiver);
+        form.add("subject_1", request.getTitle() != null ? request.getTitle() : "");
+        form.add("message_1", request.getMsg());
+        if (properties.getTestmodeYn() != null && !properties.getTestmodeYn().isBlank()) {
+            form.add("testMode", properties.getTestmodeYn());
+        }
+
+        JsonNode root = callApi(url, form);
+        int code = root.path("code").asInt(-99999);
+        if (code < 0) {
+            throw new ResponseStatusException(BAD_GATEWAY, root.path("message").asText("알리고 알림톡 발송 실패"));
+        }
+        return root;
+    }
+
     private JsonNode send(AligoSmsSendRequest request, String msgType, List<AligoFilePart> images) {
         validateConfig();
         String url = properties.getBaseUrl() + "/send/";
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
 
         MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
         form.add("key", properties.getApiKey());
@@ -86,9 +114,19 @@ public class AligoSmsService {
 
         addImages(form, images);
 
+        JsonNode root = callApi(url, form);
+
+        int resultCode = root.path("result_code").asInt(-99999);
+        if (resultCode < 0) {
+            throw new ResponseStatusException(BAD_GATEWAY, root.path("message").asText("알리고 발송 실패"));
+        }
+        return root;
+    }
+
+    private JsonNode callApi(String url, MultiValueMap<String, Object> form) {
         ResponseEntity<String> response;
         try {
-            response = restTemplate.postForEntity(url, new HttpEntity<>(form, headers), String.class);
+            response = restTemplate.postForEntity(url, new HttpEntity<>(form, defaultMultipartHeaders()), String.class);
         } catch (Exception e) {
             throw new ResponseStatusException(BAD_GATEWAY, "알리고 API 호출 실패: " + e.getMessage());
         }
@@ -97,19 +135,17 @@ public class AligoSmsService {
         if (raw == null || raw.isBlank()) {
             throw new ResponseStatusException(BAD_GATEWAY, "알리고 API 응답이 비어 있습니다.");
         }
-
-        JsonNode root;
         try {
-            root = objectMapper.readTree(raw);
+            return objectMapper.readTree(raw);
         } catch (Exception e) {
             throw new ResponseStatusException(BAD_GATEWAY, "알리고 API 응답 파싱 실패: " + e.getMessage());
         }
+    }
 
-        int resultCode = root.path("result_code").asInt(-99999);
-        if (resultCode < 0) {
-            throw new ResponseStatusException(BAD_GATEWAY, root.path("message").asText("알리고 발송 실패"));
-        }
-        return root;
+    private HttpHeaders defaultMultipartHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        return headers;
     }
 
     private void addImages(MultiValueMap<String, Object> form, List<AligoFilePart> images) {
@@ -162,6 +198,13 @@ public class AligoSmsService {
         }
         if (properties.getUserId() == null || properties.getUserId().isBlank()) {
             throw new ResponseStatusException(SERVICE_UNAVAILABLE, "aligo.sms.user-id 가 설정되지 않았습니다.");
+        }
+    }
+
+    private void validateKakaoConfig() {
+        validateConfig();
+        if (properties.getSenderKey() == null || properties.getSenderKey().isBlank()) {
+            throw new ResponseStatusException(SERVICE_UNAVAILABLE, "aligo.sms.sender-key 가 설정되지 않았습니다.");
         }
     }
 

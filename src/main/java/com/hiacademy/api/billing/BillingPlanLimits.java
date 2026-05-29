@@ -28,6 +28,28 @@ public final class BillingPlanLimits {
         return false;
     }
 
+    /** 요금제 등급 (낮을수록 하위). basic=0 … enterprise=3 */
+    public static int planTier(String billingPlanId) {
+        if (billingPlanId == null || billingPlanId.isBlank()) {
+            return 0;
+        }
+        return switch (billingPlanId.trim().toLowerCase()) {
+            case "basic" -> 0;
+            case "standard" -> 1;
+            case "premium" -> 2;
+            case "enterprise" -> 3;
+            default -> 0;
+        };
+    }
+
+    public static boolean isUpgrade(String currentPlanId, String newPlanId) {
+        return planTier(newPlanId) > planTier(currentPlanId);
+    }
+
+    public static boolean isDowngrade(String currentPlanId, String newPlanId) {
+        return planTier(newPlanId) < planTier(currentPlanId);
+    }
+
     /** subscribe 요청 planId 정규화 */
     public static String normalizePlanId(String raw) {
         if (raw == null || raw.isBlank()) {

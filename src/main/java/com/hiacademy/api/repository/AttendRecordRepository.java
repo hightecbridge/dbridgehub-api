@@ -17,4 +17,5 @@ public interface AttendRecordRepository extends JpaRepository<AttendRecord, Long
     @Query("SELECT r FROM AttendRecord r JOIN r.sheet s " +
            "WHERE r.student.id = :studentId ORDER BY s.attendDate DESC")
     List<AttendRecord> findAllByStudentIdOrderByDateDesc(@Param("studentId") Long studentId);
+    void deleteAllByStudent_Id(Long studentId);
 }

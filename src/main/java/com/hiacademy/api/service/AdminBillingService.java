@@ -1,6 +1,7 @@
 package com.hiacademy.api.service;
 
 import com.hiacademy.api.billing.BillingPlanLimits;
+import com.hiacademy.api.billing.TossCardCompanyNames;
 import com.hiacademy.api.dto.request.BillingAutoSubscribeRequest;
 import com.hiacademy.api.dto.request.BillingPointChargeRequest;
 import com.hiacademy.api.dto.request.BillingSmsRequest;
@@ -55,13 +56,14 @@ public class AdminBillingService {
     private final BillingPaymentLogRepository paymentLogRepo;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
     @Value("${toss.payments.secret-key:${TOSS_PAYMENTS_SECRET_KEY:}}")
     private String tossSecretKey;
 
     public BillingSummaryResponse getSummary(Long academyId) {
         Academy a = loadAndMigrate(academyId);
+        maybeRepairStoredCardCompany(a);
         SmsCosts smsCosts = loadSmsCosts();
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime trialEnd = a.getTrialEndsAt();
@@ -105,6 +107,10 @@ public class AdminBillingService {
             .studentLimit(studentLimit)
             .autoBillingEnabled(Boolean.TRUE.equals(a.getAutoBillingEnabled()))
             .billingKeyIssuedAt(a.getBillingKeyIssuedAt())
+            .billingCardLast4(a.getBillingCardLast4())
+            .billingCardCompany(resolveStoredCardCompany(a))
+            .billingCardExpMonth(a.getBillingCardExpMonth())
+            .billingCardExpYear(a.getBillingCardExpYear())
             .build();
     }
 
@@ -114,6 +120,9 @@ public class AdminBillingService {
      */
     public BillingSummaryResponse subscribe(Long academyId, BillingSubscribeRequest req) {
         Academy a = loadAndMigrate(academyId);
+        if (req != null && req.getPlanId() != null && !req.getPlanId().isBlank()) {
+            validatePlanChange(a, BillingPlanLimits.normalizePlanId(req.getPlanId()));
+        }
         int months = billingMonthsFromRequest(req);
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime anchor = now;
@@ -153,12 +162,16 @@ public class AdminBillingService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "카드 정보(cardNumber, cardExpirationYear, cardExpirationMonth, customerIdentityNumber, cardPassword)가 필요합니다.");
         }
         Academy a = loadAndMigrate(academyId);
+        if (req.getPlanId() != null && !req.getPlanId().isBlank()) {
+            validatePlanChange(a, BillingPlanLimits.normalizePlanId(req.getPlanId()));
+        }
         TossBillingKeyIssueResult issue = issueBillingKey(req);
         a.setTossCustomerKey(req.getCustomerKey());
         a.setTossAuthKey(null);
         a.setTossBillingKey(issue.billingKey());
         a.setAutoBillingEnabled(true);
         a.setBillingKeyIssuedAt(LocalDateTime.now());
+        applyBillingCardMeta(a, issue.cardMeta());
         if (req.getPlanId() != null && !req.getPlanId().isBlank()) {
             a.setBillingPlanId(BillingPlanLimits.normalizePlanId(req.getPlanId()));
         }
@@ -178,6 +191,80 @@ public class AdminBillingService {
         subscribeReq.setOrderId(orderId);
         subscribeReq.setPaidAmountKrw(amount);
         return subscribe(academyId, subscribeReq);
+    }
+
+    /**
+     * 등록된 빌링키로 요금제 변경(업그레이드·다운그레이드, 카드 재입력 없음).
+     * 다운그레이드는 등록 학생 수가 변경 요금제 상한 이하일 때만 허용합니다.
+     */
+    public BillingSummaryResponse changeBillingPlan(Long academyId, BillingSubscribeRequest req) {
+        if (req == null || req.getPlanId() == null || req.getPlanId().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "요금제(planId)가 필요합니다.");
+        }
+        Academy a = loadAndMigrate(academyId);
+        if (!Boolean.TRUE.equals(a.getAutoBillingEnabled()) || a.getBillingKeyIssuedAt() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "정기결제가 등록되어 있지 않습니다. 카드 정보를 등록해 주세요.");
+        }
+        if (a.getTossBillingKey() == null || a.getTossBillingKey().isBlank()
+            || a.getTossCustomerKey() == null || a.getTossCustomerKey().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "등록된 결제 수단이 없습니다. 카드 정보 변경 후 다시 시도해 주세요.");
+        }
+        String newPlan = BillingPlanLimits.normalizePlanId(req.getPlanId());
+        validatePlanChange(a, newPlan);
+        String current = BillingPlanLimits.normalizePlanId(a.getBillingPlanId());
+        if (current.equals(newPlan)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "현재와 동일한 요금제입니다.");
+        }
+        long amount = req.getPaidAmountKrw() != null && req.getPaidAmountKrw() > 0
+            ? req.getPaidAmountKrw()
+            : monthlyAmountForPlan(newPlan);
+        String orderId = req.getOrderId() != null && !req.getOrderId().isBlank()
+            ? req.getOrderId()
+            : (BillingPlanLimits.isDowngrade(current, newPlan) ? "DWN-" : "UPG-") + academyId + "-" + System.currentTimeMillis();
+        String chargeLabel = BillingPlanLimits.isDowngrade(current, newPlan)
+            ? "하이아카데미 요금제 다운그레이드"
+            : "하이아카데미 요금제 업그레이드";
+        chargeWithBillingKey(a.getTossBillingKey(), a.getTossCustomerKey(), amount, orderId, chargeLabel);
+        a.setBillingPlanId(newPlan);
+        academyRepo.save(a);
+        BillingSubscribeRequest subscribeReq = new BillingSubscribeRequest();
+        subscribeReq.setPlanId(newPlan);
+        subscribeReq.setBillingCycle(req.getBillingCycle() != null ? req.getBillingCycle() : "MONTHLY");
+        subscribeReq.setOrderId(orderId);
+        subscribeReq.setPaidAmountKrw(amount);
+        return subscribe(academyId, subscribeReq);
+    }
+
+    /** 정기결제 등록 후 카드 정보만 변경(빌링키 재발급, 즉시 청구 없음) */
+    public BillingSummaryResponse changeBillingCard(Long academyId, BillingAutoSubscribeRequest req) {
+        if (req == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "요청값이 필요합니다.");
+        }
+        if (req.getCustomerKey() == null || req.getCustomerKey().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "customerKey가 필요합니다.");
+        }
+        if (req.getCardNumber() == null || req.getCardNumber().isBlank()
+            || req.getCardExpirationYear() == null || req.getCardExpirationYear().isBlank()
+            || req.getCardExpirationMonth() == null || req.getCardExpirationMonth().isBlank()
+            || req.getCustomerIdentityNumber() == null || req.getCustomerIdentityNumber().isBlank()
+            || req.getCardPassword() == null || req.getCardPassword().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "카드 정보가 필요합니다.");
+        }
+        Academy a = loadAndMigrate(academyId);
+        if (!Boolean.TRUE.equals(a.getAutoBillingEnabled()) || a.getBillingKeyIssuedAt() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "정기결제가 등록되어 있지 않습니다.");
+        }
+        TossBillingKeyIssueResult issue = issueBillingKey(req);
+        a.setTossCustomerKey(req.getCustomerKey());
+        a.setTossAuthKey(null);
+        a.setTossBillingKey(issue.billingKey());
+        a.setBillingKeyIssuedAt(LocalDateTime.now());
+        applyBillingCardMeta(a, issue.cardMeta());
+        academyRepo.save(a);
+        log.info("[Billing] changeBillingCard academyId={}", academyId);
+        return getSummary(academyId);
     }
 
     /** 포인트 충전(결제 완료 후 호출). */
@@ -460,6 +547,30 @@ public class AdminBillingService {
 
     public record SmsPointDeductionResult(String messageType, int deductedPoints, int remainingPoints) {}
 
+    /**
+     * 요금제 변경 가능 여부: 등록 학생 수만 검사합니다.
+     * 정기결제 등록 여부와 관계없이 업그레이드·다운그레이드 모두 허용하며,
+     * 다운그레이드 시에는 변경 후 요금제의 학생 상한만 확인합니다.
+     */
+    private void validatePlanChange(Academy academy, String newPlanId) {
+        String next = BillingPlanLimits.normalizePlanId(newPlanId);
+        long studentCount = studentRepo.countByAcademyIdExcludingWithdrawn(academy.getId(), StudentStatus.퇴원);
+        int newMax = BillingPlanLimits.maxStudents(next);
+        if (studentCount > newMax) {
+            String targetPlanName = planLabel(next);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                String.format(
+                    "현재 등록 학생 %d명입니다. %s 요금제는 최대 %d명까지 가능합니다. "
+                        + "학부모 관리에서 등록 인원을 삭제한 후 요금제를 변경해 주세요.",
+                    studentCount, targetPlanName, newMax));
+        }
+    }
+
+    /** @deprecated 호환용 — {@link #changeBillingPlan} 과 동일 */
+    public BillingSummaryResponse upgradePlan(Long academyId, BillingSubscribeRequest req) {
+        return changeBillingPlan(academyId, req);
+    }
+
     private long monthlyAmountForPlan(String planId) {
         String normalized = BillingPlanLimits.normalizePlanId(planId);
         return switch (normalized) {
@@ -490,17 +601,19 @@ public class AdminBillingService {
                 payload.put("customerEmail", req.getCustomerEmail());
             }
 
-            ResponseEntity<String> res = restTemplate.postForEntity(
+            ResponseEntity<byte[]> res = restTemplate.postForEntity(
                 "https://api.tosspayments.com/v1/billing/authorizations/card",
                 new HttpEntity<>(objectMapper.writeValueAsString(payload), headers),
-                String.class
+                byte[].class
             );
-            JsonNode root = objectMapper.readTree(res.getBody() == null ? "{}" : res.getBody());
+            String responseBody = decodeUtf8Response(res.getBody());
+            JsonNode root = objectMapper.readTree(responseBody.isBlank() ? "{}" : responseBody);
             String billingKey = root.path("billingKey").asText("");
             if (billingKey.isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "토스 빌링키 발급에 실패했습니다.");
             }
-            return new TossBillingKeyIssueResult(billingKey);
+            BillingCardMeta cardMeta = parseBillingCardMeta(root, req);
+            return new TossBillingKeyIssueResult(billingKey, cardMeta);
         } catch (HttpStatusCodeException e) {
             throw tossException("빌링키 발급 실패", e);
         } catch (Exception e) {
@@ -542,10 +655,10 @@ public class AdminBillingService {
     }
 
     private ResponseStatusException tossException(String prefix, HttpStatusCodeException e) {
-        String body = e.getResponseBodyAsString();
+        String body = decodeUtf8Response(e.getResponseBodyAsByteArray());
         String message = prefix;
         try {
-            JsonNode root = objectMapper.readTree(body == null ? "{}" : body);
+            JsonNode root = objectMapper.readTree(body.isBlank() ? "{}" : body);
             String tossMsg = root.path("message").asText("");
             if (!tossMsg.isBlank()) {
                 message = prefix + ": " + tossMsg;
@@ -556,6 +669,112 @@ public class AdminBillingService {
         return new ResponseStatusException(HttpStatus.BAD_REQUEST, message, e);
     }
 
-    private record TossBillingKeyIssueResult(String billingKey) {}
+    private record BillingCardMeta(String last4, String cardCompany, String issuerCode, String expMonth, String expYear) {}
+
+    private record TossBillingKeyIssueResult(String billingKey, BillingCardMeta cardMeta) {}
+
+    private void applyBillingCardMeta(Academy academy, BillingCardMeta meta) {
+        if (meta == null) return;
+        if (meta.last4() != null && !meta.last4().isBlank()) {
+            academy.setBillingCardLast4(meta.last4());
+        }
+        if (meta.issuerCode() != null && !meta.issuerCode().isBlank()) {
+            academy.setBillingCardIssuerCode(meta.issuerCode());
+        }
+        if (meta.cardCompany() != null && !meta.cardCompany().isBlank()) {
+            academy.setBillingCardCompany(meta.cardCompany());
+        }
+        if (meta.expMonth() != null && !meta.expMonth().isBlank()) {
+            academy.setBillingCardExpMonth(meta.expMonth());
+        }
+        if (meta.expYear() != null && !meta.expYear().isBlank()) {
+            academy.setBillingCardExpYear(meta.expYear());
+        }
+    }
+
+    private BillingCardMeta parseBillingCardMeta(JsonNode root, BillingAutoSubscribeRequest req) {
+        JsonNode card = root.path("card");
+        String issuerCode = card.path("issuerCode").asText("").trim();
+        if (issuerCode.isBlank()) {
+            issuerCode = card.path("acquirerCode").asText("").trim();
+        }
+        String cardCompanyRaw = root.path("cardCompany").asText("").trim();
+        String cardCompany = TossCardCompanyNames.resolveDisplayName(issuerCode, cardCompanyRaw);
+        String maskedNumber = root.path("cardNumber").asText("").trim();
+        if (maskedNumber.isBlank()) {
+            maskedNumber = card.path("number").asText("").trim();
+        }
+        String last4 = extractLast4Digits(maskedNumber);
+        if (last4.isBlank() && req != null && req.getCardNumber() != null) {
+            last4 = extractLast4Digits(req.getCardNumber().replaceAll("\\s+", ""));
+        }
+        String expMonth = req != null ? normalizeExpMonth(req.getCardExpirationMonth()) : "";
+        String expYear = req != null ? normalizeExpYear(req.getCardExpirationYear()) : "";
+        return new BillingCardMeta(last4, cardCompany, issuerCode, expMonth, expYear);
+    }
+
+    private static String resolveStoredCardCompany(Academy academy) {
+        return TossCardCompanyNames.resolveDisplayName(
+            academy.getBillingCardIssuerCode(),
+            academy.getBillingCardCompany());
+    }
+
+    private void maybeRepairStoredCardCompany(Academy academy) {
+        if (academy.getBillingCardLast4() == null || academy.getBillingCardLast4().isBlank()) {
+            return;
+        }
+        String resolved = resolveStoredCardCompany(academy);
+        if (resolved == null || resolved.isBlank()) {
+            return;
+        }
+        if (!resolved.equals(academy.getBillingCardCompany())) {
+            academy.setBillingCardCompany(resolved);
+            academyRepo.save(academy);
+        }
+    }
+
+    private static String decodeUtf8Response(byte[] body) {
+        if (body == null || body.length == 0) {
+            return "";
+        }
+        return new String(body, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private static String extractLast4Digits(String cardNumberField) {
+        if (cardNumberField == null || cardNumberField.isBlank()) {
+            return "";
+        }
+        String digits = cardNumberField.replaceAll("\\D", "");
+        if (digits.length() < 4) {
+            return digits;
+        }
+        return digits.substring(digits.length() - 4);
+    }
+
+    private static String normalizeExpMonth(String raw) {
+        if (raw == null || raw.isBlank()) return "";
+        String m = raw.replaceAll("\\D", "");
+        if (m.isEmpty()) return "";
+        if (m.length() >= 2) {
+            return m.substring(m.length() - 2);
+        }
+        try {
+            return String.format(Locale.KOREA, "%02d", Integer.parseInt(m));
+        } catch (NumberFormatException e) {
+            return m;
+        }
+    }
+
+    private static String normalizeExpYear(String raw) {
+        if (raw == null || raw.isBlank()) return "";
+        String y = raw.replaceAll("\\D", "");
+        if (y.length() >= 4) {
+            return y.substring(y.length() - 4);
+        }
+        if (y.length() == 2) {
+            return y;
+        }
+        return y;
+    }
 
 }

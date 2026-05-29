@@ -41,6 +41,21 @@ public class Academy {
     private Boolean autoBillingEnabled;
     /** 최근 빌링키 발급 시각 */
     private LocalDateTime billingKeyIssuedAt;
+    /** 정기결제 카드 번호 뒤 4자리 (마스킹 표시용) */
+    @Column(length = 4)
+    private String billingCardLast4;
+    /** 정기결제 카드사명 (토스 cardCompany) */
+    @Column(length = 32)
+    private String billingCardCompany;
+    /** 토스 카드 발급사 코드(issuerCode, 2자리) */
+    @Column(length = 8)
+    private String billingCardIssuerCode;
+    /** 카드 유효기간 월 (MM) */
+    @Column(length = 2)
+    private String billingCardExpMonth;
+    /** 카드 유효기간 연 (YY 또는 YYYY) */
+    @Column(length = 4)
+    private String billingCardExpYear;
     @CreationTimestamp private LocalDateTime createdAt;
     @UpdateTimestamp   private LocalDateTime updatedAt;
 

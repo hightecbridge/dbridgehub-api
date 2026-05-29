@@ -34,4 +34,12 @@ public class BillingSummaryResponse {
     private boolean autoBillingEnabled;
     /** 빌링키(정기결제 카드) 발급·등록 시각 */
     private LocalDateTime billingKeyIssuedAt;
+    /** 등록 카드 번호 뒤 4자리 */
+    private String billingCardLast4;
+    /** 등록 카드사 */
+    private String billingCardCompany;
+    /** 카드 유효기간 월 (MM) */
+    private String billingCardExpMonth;
+    /** 카드 유효기간 연 (YY 또는 YYYY) */
+    private String billingCardExpYear;
 }

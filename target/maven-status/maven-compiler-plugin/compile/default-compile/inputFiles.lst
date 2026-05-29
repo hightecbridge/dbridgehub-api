@@ -148,6 +148,7 @@ C:\project\api\src\main\java\com\hiacademy\api\dto\request\FeeUpdateRequest.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\ApiResponse.java
 C:\project\api\src\main\java\com\hiacademy\api\entity\HomepageParentInquiry.java
 C:\project\api\src\main\java\com\hiacademy\api\entity\MessageSendKind.java
+C:\project\api\src\main\java\com\hiacademy\api\billing\TossCardCompanyNames.java
 C:\project\api\src\main\java\com\hiacademy\api\schema\NoticeSchemaInitializer.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\ConsultResponse.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\SenderNumberResponse.java

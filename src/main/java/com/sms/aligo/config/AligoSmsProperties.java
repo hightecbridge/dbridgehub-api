@@ -7,6 +7,8 @@ public class AligoSmsProperties {
     private String apiKey = "";
     private String userId = "";
     private String baseUrl = "https://apis.aligo.in";
+    private String kakaoBaseUrl = "https://kakaoapi.aligo.in";
+    private String senderKey = "";
     private String testmodeYn = "N";
 
     public String getApiKey() {
@@ -31,6 +33,22 @@ public class AligoSmsProperties {
 
     public void setBaseUrl(String baseUrl) {
         this.baseUrl = baseUrl;
+    }
+
+    public String getKakaoBaseUrl() {
+        return kakaoBaseUrl;
+    }
+
+    public void setKakaoBaseUrl(String kakaoBaseUrl) {
+        this.kakaoBaseUrl = kakaoBaseUrl;
+    }
+
+    public String getSenderKey() {
+        return senderKey;
+    }
+
+    public void setSenderKey(String senderKey) {
+        this.senderKey = senderKey;
     }
 
     public String getTestmodeYn() {

@@ -1,8 +1,26 @@
 package com.hiacademy.api.service;
 import com.hiacademy.api.dto.response.*;
 import com.hiacademy.api.entity.*;
+import java.time.LocalDate;
+import java.util.List;
 
 class Mapper {
+
+    static int currentYearMonth() {
+        LocalDate now = LocalDate.now();
+        return now.getYear() * 100 + now.getMonthValue();
+    }
+
+    static int normalizeYearMonth(Integer yearMonth) {
+        if (yearMonth == null || yearMonth < 100001) {
+            return currentYearMonth();
+        }
+        int month = yearMonth % 100;
+        if (month < 1 || month > 12) {
+            return currentYearMonth();
+        }
+        return yearMonth;
+    }
     static AcademyInfo toAcademyInfo(Academy a) {
         if (a==null) return null;
         return AcademyInfo.builder().id(a.getId()).name(a.getName())
@@ -17,20 +35,38 @@ class Mapper {
     }
     static FeeResponse toFee(FeeRecord f) {
         return FeeResponse.builder().id(f.getId()).label(f.getLabel())
-            .amount(f.getAmount()).paid(f.isPaid()).yearMonth(f.getYearMonth()).build();
+            .amount(f.getAmount()).paid(f.isPaid()).yearMonth(f.getYearMonth())
+            .paidAt(f.getPaidAt() != null ? f.getPaidAt().toString() : null)
+            .paymentMethod(f.getPaymentMethod())
+            .build();
     }
     static StudentResponse toStudent(Student s) {
+        return toStudent(s, currentYearMonth());
+    }
+
+    static StudentResponse toStudent(Student s, int yearMonth) {
+        int ym = normalizeYearMonth(yearMonth);
+        List<FeeResponse> fees = s.getFees() == null ? List.of() : s.getFees().stream()
+            .filter(f -> f.getYearMonth() == ym)
+            .map(Mapper::toFee)
+            .toList();
         return StudentResponse.builder().id(s.getId()).name(s.getName()).grade(s.getGrade())
             .birthDate(s.getBirthDate()).status(s.getStatus()!=null?s.getStatus().name():null)
             .classroomId(s.getClassroom()!=null?s.getClassroom().getId():null)
             .classroomName(s.getClassroom()!=null?s.getClassroom().getName():null)
-            .fees(s.getFees().stream().map(Mapper::toFee).toList()).build();
+            .fees(fees).build();
     }
+
     static ParentResponse toParent(Parent p) {
+        return toParent(p, currentYearMonth());
+    }
+
+    static ParentResponse toParent(Parent p, int yearMonth) {
+        int ym = normalizeYearMonth(yearMonth);
         return ParentResponse.builder().id(p.getId()).name(p.getName()).phone(p.getPhone())
             .badgeColor(p.getBadgeColor()).badgeTextColor(p.getBadgeTextColor())
             .kakaoLinked(p.isKakaoLinked()).createdAt(p.getCreatedAt())
-            .students(p.getStudents().stream().map(Mapper::toStudent).toList()).build();
+            .students(p.getStudents().stream().map(st -> toStudent(st, ym)).toList()).build();
     }
     static AttendRecordResponse toAttendRecord(AttendRecord r) {
         return AttendRecordResponse.builder().id(r.getId())
