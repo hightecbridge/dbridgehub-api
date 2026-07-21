@@ -39,13 +39,19 @@ public class ParentStudentService {
             .toList();
     }
     public ParentResponse createParent(Long academyId, ParentRequest req) {
-        if (req.getLoginPhone()!=null && parentRepo.existsByLoginPhone(req.getLoginPhone()))
-            throw new ResponseStatusException(HttpStatus.CONFLICT,"이미 등록된 전화번호입니다.");
+        String phone = normalizePhone(req.getPhone());
+        String loginPhone = normalizePhone(req.getLoginPhone() != null ? req.getLoginPhone() : req.getPhone());
+        if (phone == null || loginPhone == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "전화번호를 올바르게 입력해 주세요.");
+        }
+        if (parentRepo.existsByAcademy_IdAndLoginPhone(academyId, loginPhone)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이 학원에 이미 등록된 전화번호입니다.");
+        }
         Academy a = academyRepo.getReferenceById(academyId);
         return Mapper.toParent(parentRepo.save(Parent.builder()
-            .name(req.getName()).phone(req.getPhone())
+            .name(req.getName()).phone(phone)
             .badgeColor(req.getBadgeColor()).badgeTextColor(req.getBadgeTextColor())
-            .kakaoLinked(req.isKakaoLinked()).loginPhone(req.getLoginPhone())
+            .kakaoLinked(req.isKakaoLinked()).loginPhone(loginPhone)
             .loginPassword(req.getLoginPassword()!=null?encoder.encode(req.getLoginPassword()):null)
             .academy(a).build()));
     }
@@ -142,5 +148,13 @@ public class ParentStudentService {
             fee.setPaidAt(null);
             fee.setPaymentMethod(null);
         }
+    }
+
+    private static String normalizePhone(String phone) {
+        if (phone == null) {
+            return null;
+        }
+        String normalized = phone.replaceAll("[^0-9]", "");
+        return normalized.isBlank() ? null : normalized;
     }
 }

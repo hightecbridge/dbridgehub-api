@@ -12,5 +12,7 @@ public interface ParentRepository extends JpaRepository<Parent, Long> {
     List<Parent> findAllByAcademy_IdOrderByCreatedAtDesc(Long academyId);
     Optional<Parent> findByIdAndAcademy_Id(Long id, Long academyId);
     Optional<Parent> findByLoginPhone(String loginPhone);
+    List<Parent> findAllByLoginPhone(String loginPhone);
     boolean existsByLoginPhone(String loginPhone);
+    boolean existsByAcademy_IdAndLoginPhone(Long academyId, String loginPhone);
 }

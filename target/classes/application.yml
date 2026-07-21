@@ -66,6 +66,9 @@ app:
     secret: ${JWT_SECRET:HiAcademySecretKey2024VeryLongSecretKeyForJWT256Bits!}
     expiration-ms: 86400000
     parent-expiration-ms: 604800000
+  message:
+    # DB(message_sender_profiles) 공통 번호가 없을 때만 사용하는 임시 기본값
+    default-sender-number: ${DEFAULT_SENDER_NUMBER:01050299455}
 
 # NHN Cloud Notification SMS v3 (https://docs.nhncloud.com/ko/Notification/SMS/ko/api-guide/)
 nhn:

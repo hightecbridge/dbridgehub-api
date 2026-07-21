@@ -7,7 +7,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Entity @Table(name = "parents")
+@Entity @Table(name = "parents",
+    uniqueConstraints = @UniqueConstraint(
+        name = "uk_parents_academy_login_phone",
+        columnNames = {"academy_id", "login_phone"}
+    ))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Parent {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -17,7 +21,7 @@ public class Parent {
     private String badgeColor;
     private String badgeTextColor;
     private boolean kakaoLinked;
-    @Column(unique = true) private String loginPhone;
+    private String loginPhone;
     private String loginPassword;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "academy_id", nullable = false)
     private Academy academy;

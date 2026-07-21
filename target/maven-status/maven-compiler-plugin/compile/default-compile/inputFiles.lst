@@ -68,10 +68,12 @@ C:\project\api\src\main\java\com\hiacademy\api\entity\HomeworkRecord.java
 C:\project\api\src\main\java\com\hiacademy\api\entity\HomeworkSheet.java
 C:\project\api\src\main\java\com\hiacademy\api\service\NoticeService.java
 C:\project\api\src\main\java\com\sms\nhn\config\NhnSmsProperties.java
+C:\project\api\src\main\java\com\hiacademy\api\service\MessageSenderResolverService.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\request\PushTokenRequest.java
 C:\project\api\src\main\java\com\hiacademy\api\repository\HomeworkRecordRepository.java
 C:\project\api\src\main\java\com\hiacademy\api\service\HomepageConsultService.java
 C:\project\api\src\main\java\com\hiacademy\api\config\DockerDataSourceLogger.java
+C:\project\api\src\main\java\com\hiacademy\api\dto\response\MessageSenderInfoResponse.java
 C:\project\api\src\main\java\com\hiacademy\api\repository\ConsultationRepository.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\NoticeResponse.java
 C:\project\api\src\main\java\com\hiacademy\api\controller\NoticeController.java
@@ -88,10 +90,12 @@ C:\project\api\src\main\java\com\hiacademy\api\repository\HomepageSignupInquiryR
 C:\project\api\src\main\java\com\hiacademy\api\entity\Parent.java
 C:\project\api\src\main\java\com\hiacademy\api\service\ParentAuthService.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\HomeworkRecordResponse.java
+C:\project\api\src\main\java\com\hiacademy\api\schema\MessageSenderProfileInitializer.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\request\BillingSmsRequest.java
 C:\project\api\src\main\java\com\hiacademy\api\controller\AdminBillingController.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\AttendRecordResponse.java
 C:\project\api\src\main\java\com\hiacademy\api\entity\SenderNumberItem.java
+C:\project\api\src\main\java\com\hiacademy\api\entity\MessageSenderProfile.java
 C:\project\api\src\main\java\com\hiacademy\api\entity\User.java
 C:\project\api\src\main\java\com\hiacademy\api\repository\ParentRepository.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\ParentHomeResponse.java
@@ -113,6 +117,7 @@ C:\project\api\src\main\java\com\sms\aligo\config\AligoSmsProperties.java
 C:\project\api\src\main\java\com\hiacademy\api\controller\HomepageSignupInquiryController.java
 C:\project\api\src\main\java\com\hiacademy\api\repository\HomepageConsultRepository.java
 C:\project\api\src\main\java\com\hiacademy\api\controller\AuthHelper.java
+C:\project\api\src\main\java\com\hiacademy\api\repository\MessageSenderProfileRepository.java
 C:\project\api\src\main\java\com\hiacademy\api\entity\EventCategory.java
 C:\project\api\src\main\java\com\hiacademy\api\service\ParentPushTokenService.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\request\BillingPointChargeRequest.java
@@ -145,6 +150,7 @@ C:\project\api\src\main\java\com\hiacademy\api\security\SecurityConfig.java
 C:\project\api\src\main\java\com\hiacademy\api\security\TokenDetails.java
 C:\project\api\src\main\java\com\ApiApplication.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\request\FeeUpdateRequest.java
+C:\project\api\src\main\java\com\hiacademy\api\schema\ParentSchemaInitializer.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\ApiResponse.java
 C:\project\api\src\main\java\com\hiacademy\api\entity\HomepageParentInquiry.java
 C:\project\api\src\main\java\com\hiacademy\api\entity\MessageSendKind.java

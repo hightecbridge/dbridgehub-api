@@ -33,19 +33,41 @@ public class ParentAuthService {
         parentRepo=p; academyRepo=a; feeRepo=f; hwRecordRepo=hw; eventRepo=e; noticeRepo=n; encoder=enc; jwt=j;
     }
     public AuthResponse login(ParentLoginRequest req) {
-        String phone = req.getPhone();
+        String phone = normalizePhone(req.getPhone());
         String rawPassword = req.getPassword();
         log.info("[ParentAuth] login attempt phone={}", phone);
         log.info("[ParentAuth] received pwLen={}", rawPassword != null ? rawPassword.length() : null);
 
-        Parent parent = parentRepo.findByLoginPhone(phone)
-            .orElseThrow(() -> {
-                log.info("[ParentAuth] parent not found for phone={}", phone);
-                return new ResponseStatusException(
+        if (phone == null) {
+            throw new ResponseStatusException(
+                HttpStatus.UNAUTHORIZED,
+                "전화번호 또는 비밀번호가 올바르지 않습니다."
+            );
+        }
+
+        List<Parent> matches = parentRepo.findAllByLoginPhone(phone);
+        if (matches.isEmpty()) {
+            log.info("[ParentAuth] parent not found for phone={}", phone);
+            throw new ResponseStatusException(
+                HttpStatus.UNAUTHORIZED,
+                "전화번호 또는 비밀번호가 올바르지 않습니다."
+            );
+        }
+
+        Parent parent;
+        if (matches.size() == 1) {
+            parent = matches.get(0);
+        } else {
+            parent = matches.stream()
+                .filter(p -> p.getLoginPassword() != null
+                    && rawPassword != null
+                    && encoder.matches(rawPassword, p.getLoginPassword()))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
-                    "전화번호 또는 비밀번호가 올바르지 않습니다."
-                );
-            });
+                    "여러 학원에 등록된 번호입니다. 비밀번호를 확인해 주세요."
+                ));
+        }
 
         // 테스트 용도: 비밀번호 검증을 임시로 스킵합니다.
         // (운영에서는 반드시 비밀번호 검증 로직을 되돌려야 합니다.)
@@ -57,11 +79,14 @@ public class ParentAuthService {
     }
 
     public AuthResponse signup(ParentSignupRequest req) {
-        String phone = req.getPhone();
+        String phone = normalizePhone(req.getPhone());
         log.info("[ParentAuth] signup attempt academyId={} phoneLen={}", req.getAcademyId(), phone != null ? phone.length() : null);
 
-        if (parentRepo.existsByLoginPhone(phone)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 등록된 전화번호입니다.");
+        if (phone == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "전화번호를 올바르게 입력해 주세요.");
+        }
+        if (parentRepo.existsByAcademy_IdAndLoginPhone(req.getAcademyId(), phone)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이 학원에 이미 등록된 전화번호입니다.");
         }
 
         Parent parent = parentRepo.save(Parent.builder()
@@ -104,5 +129,13 @@ public class ParentAuthService {
             .stream().limit(5).map(Mapper::toEvent).toList();
         return ParentHomeResponse.builder().academy(Mapper.toAcademyInfo(academy))
             .students(summaries).recentNotices(notices).upcomingEvents(events).build();
+    }
+
+    private static String normalizePhone(String phone) {
+        if (phone == null) {
+            return null;
+        }
+        String normalized = phone.replaceAll("[^0-9]", "");
+        return normalized.isBlank() ? null : normalized;
     }
 }

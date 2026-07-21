@@ -26,17 +26,20 @@ public class MessageSendLogService {
     private final AcademyRepository academyRepo;
     private final AligoSmsService aligoSmsService;
     private final AdminBillingService adminBillingService;
+    private final MessageSenderResolverService messageSenderResolverService;
 
     public MessageSendLogService(
         MessageSendLogRepository repo,
         AcademyRepository academyRepo,
         AligoSmsService aligoSmsService,
-        AdminBillingService adminBillingService
+        AdminBillingService adminBillingService,
+        MessageSenderResolverService messageSenderResolverService
     ) {
         this.repo = repo;
         this.academyRepo = academyRepo;
         this.aligoSmsService = aligoSmsService;
         this.adminBillingService = adminBillingService;
+        this.messageSenderResolverService = messageSenderResolverService;
     }
 
     @Transactional(readOnly = true)
@@ -47,9 +50,9 @@ public class MessageSendLogService {
     }
 
     @Transactional
-    public MessageSendLogResponse create(Long academyId, MessageSendLogRequest req) {
+    public MessageSendLogResponse create(Long academyId, Long adminUserId, MessageSendLogRequest req) {
         Academy a = academyRepo.getReferenceById(academyId);
-        SendResult sendResult = sendIfRequested(academyId, req);
+        SendResult sendResult = sendIfRequested(academyId, adminUserId, req);
 
         MessageSendKind kind;
         try {
@@ -72,7 +75,7 @@ public class MessageSendLogService {
         return toResponse(saved);
     }
 
-    private SendResult sendIfRequested(Long academyId, MessageSendLogRequest req) {
+    private SendResult sendIfRequested(Long academyId, Long adminUserId, MessageSendLogRequest req) {
         if (req.getMessageType() == null || req.getMessageType().isBlank()) {
             return new SendResult(MessageGatewayProvider.ALIGO, null, null, null);
         }
@@ -80,10 +83,8 @@ public class MessageSendLogService {
         if (recipientPhones.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "recipientPhones는 최소 1개 이상 필요합니다.");
         }
-        String sendNo = normalizePhone(req.getSendNo());
-        if (sendNo == null || sendNo.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sendNo(발신번호)는 필수입니다.");
-        }
+        // 클라이언트 sendNo 는 무시 — DB(공통/계정별)에서 결정
+        String sendNo = messageSenderResolverService.resolveForUser(adminUserId);
 
         String messageType = req.getMessageType().trim().toUpperCase(Locale.ROOT);
         String body = req.getBody() != null && !req.getBody().isBlank() ? req.getBody() : req.getBodyPreview();
