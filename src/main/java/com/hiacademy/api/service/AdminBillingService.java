@@ -7,12 +7,15 @@ import com.hiacademy.api.dto.request.BillingPointChargeRequest;
 import com.hiacademy.api.dto.request.BillingSmsRequest;
 import com.hiacademy.api.dto.request.BillingSubscribeRequest;
 import com.hiacademy.api.dto.response.BillingPaymentResponse;
+import com.hiacademy.api.dto.response.BillingPointChargePrepareResponse;
 import com.hiacademy.api.dto.response.BillingSummaryResponse;
 import com.hiacademy.api.entity.Academy;
 import com.hiacademy.api.entity.BillingPaymentLog;
+import com.hiacademy.api.entity.BillingPointChargeOrder;
 import com.hiacademy.api.entity.StudentStatus;
 import com.hiacademy.api.repository.AcademyRepository;
 import com.hiacademy.api.repository.BillingPaymentLogRepository;
+import com.hiacademy.api.repository.BillingPointChargeOrderRepository;
 import com.hiacademy.api.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -21,6 +24,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -30,15 +34,18 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.util.UriComponentsBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.net.URI;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.Base64;
 
 @Service
@@ -54,12 +61,16 @@ public class AdminBillingService {
     private final AcademyRepository academyRepo;
     private final StudentRepository studentRepo;
     private final BillingPaymentLogRepository paymentLogRepo;
+    private final BillingPointChargeOrderRepository pointChargeOrderRepo;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
 
     @Value("${toss.payments.secret-key:${TOSS_PAYMENTS_SECRET_KEY:}}")
     private String tossSecretKey;
+
+    @Value("${toss.payments.widget-secret-key:${TOSS_PAYMENTS_WIDGET_SECRET_KEY:}}")
+    private String tossWidgetSecretKey;
 
     public BillingSummaryResponse getSummary(Long academyId) {
         Academy a = loadAndMigrate(academyId);
@@ -267,13 +278,56 @@ public class AdminBillingService {
         return getSummary(academyId);
     }
 
-    /** 포인트 충전(결제 완료 후 호출). */
-    public BillingSummaryResponse chargePoints(Long academyId, BillingPointChargeRequest req) {
-        int pts = req.getPoints();
-        if (pts != 5_000 && pts != 10_000 && pts != 20_000 && pts != 30_000) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "충전 금액은 5,000 / 10,000 / 20,000 / 30,000원(VAT 포함)만 가능합니다.");
-        }
+    /** 결제위젯 요청 전 주문번호·금액을 서버에 저장한다. */
+    public BillingPointChargePrepareResponse preparePointCharge(Long academyId, int points) {
+        requireAllowedChargeAmount(points);
         Academy a = loadAndMigrate(academyId);
+        String orderId = "POINT-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        pointChargeOrderRepo.save(BillingPointChargeOrder.builder()
+            .academy(a)
+            .orderId(orderId)
+            .amountKrw(points)
+            .status("READY")
+            .build());
+        String orderName = String.format(Locale.KOREA, "하이아카데미 포인트 %,d원", points);
+        log.info("[Billing] preparePointCharge academyId={} orderId={} amount={}", academyId, orderId, points);
+        return BillingPointChargePrepareResponse.builder()
+            .orderId(orderId)
+            .amount(points)
+            .orderName(orderName)
+            .build();
+    }
+
+    /** 토스 결제 승인 후 포인트를 적립한다. */
+    public BillingSummaryResponse chargePoints(Long academyId, BillingPointChargeRequest req) {
+        String orderId = req.getOrderId() == null ? "" : req.getOrderId().trim();
+        String paymentKey = req.getPaymentKey() == null ? "" : req.getPaymentKey().trim();
+        if (orderId.isBlank() || paymentKey.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "결제 승인에 필요한 주문번호 또는 paymentKey가 없습니다.");
+        }
+
+        BillingPointChargeOrder order = pointChargeOrderRepo.findByAcademy_IdAndOrderId(academyId, orderId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "결제 주문을 찾을 수 없습니다. 다시 결제를 진행해 주세요."));
+
+        Academy a = order.getAcademy();
+        long amount = order.getAmountKrw();
+        if (req.getPoints() > 0 && req.getPoints() != amount) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "결제 금액이 주문 금액과 일치하지 않습니다.");
+        }
+
+        if ("DONE".equals(order.getStatus()) || paymentLogRepo.existsByAcademy_IdAndOrderId(academyId, orderId)) {
+            order.setStatus("DONE");
+            if (order.getPaymentKey() == null || order.getPaymentKey().isBlank()) {
+                order.setPaymentKey(paymentKey);
+            }
+            pointChargeOrderRepo.save(order);
+            return getSummary(academyId);
+        }
+
+        JsonNode payment = confirmTossPayment(paymentKey, orderId, amount);
+        assertConfirmedPayment(payment, orderId, amount);
+
+        int pts = (int) amount;
         int cur = a.getSmsPoints() != null ? a.getSmsPoints() : 0;
         a.setSmsPoints(cur + pts);
         academyRepo.save(a);
@@ -282,10 +336,14 @@ public class AdminBillingService {
             .academy(a)
             .paymentType("POINT_CHARGE")
             .amountKrw(pts)
-            .orderId(req.getOrderId())
+            .orderId(orderId)
             .summary(summary)
             .build());
-        log.info("[Billing] chargePoints academyId={} points={}", academyId, pts);
+        order.setStatus("DONE");
+        order.setPaymentKey(paymentKey);
+        order.setConfirmedAt(LocalDateTime.now());
+        pointChargeOrderRepo.save(order);
+        log.info("[Billing] chargePoints academyId={} points={} orderId={}", academyId, pts, orderId);
         return getSummary(academyId);
     }
 
@@ -640,18 +698,159 @@ public class AdminBillingService {
         }
     }
 
+    private static void requireAllowedChargeAmount(int points) {
+        if (points != 5_000 && points != 10_000 && points != 20_000 && points != 30_000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "충전 금액은 5,000 / 10,000 / 20,000 / 30,000원(VAT 포함)만 가능합니다.");
+        }
+    }
+
+    private JsonNode confirmTossPayment(String paymentKey, String orderId, long amount) {
+        ensureTossWidgetSecretConfigured();
+        HttpHeaders headers = tossWidgetHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Idempotency-Key", orderId);
+        try {
+            Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("paymentKey", paymentKey);
+            payload.put("orderId", orderId);
+            payload.put("amount", amount);
+            ResponseEntity<byte[]> res = restTemplate.postForEntity(
+                "https://api.tosspayments.com/v1/payments/confirm",
+                new HttpEntity<>(objectMapper.writeValueAsString(payload), headers),
+                byte[].class
+            );
+            return parseTossJson(res.getBody());
+        } catch (HttpStatusCodeException e) {
+            String code = extractTossCode(e);
+            if ("ALREADY_PROCESSED_PAYMENT".equals(code)) {
+                return getTossPayment(paymentKey);
+            }
+            if ("NOT_FOUND_PAYMENT".equals(code)) {
+                log.warn("[Billing] toss confirm NOT_FOUND_PAYMENT orderId={} secretKind={}",
+                    orderId, secretKind(resolveWidgetSecretKey()));
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "결제 승인 실패: 토스에서 해당 결제를 찾지 못했습니다. "
+                        + "운영 서버 TOSS_PAYMENTS_WIDGET_SECRET_KEY 가 결제위젯 키(live_gck_)와 같은 상점의 live_gsk_ 인지 확인해 주세요.");
+            }
+            throw tossException("결제 승인 실패", e);
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "결제 승인 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    private JsonNode getTossPayment(String paymentKey) {
+        ensureTossWidgetSecretConfigured();
+        URI uri = UriComponentsBuilder.fromHttpUrl("https://api.tosspayments.com/v1/payments")
+            .pathSegment(paymentKey)
+            .build()
+            .encode()
+            .toUri();
+        try {
+            ResponseEntity<byte[]> res = restTemplate.exchange(
+                uri,
+                HttpMethod.GET,
+                new HttpEntity<>(tossWidgetHeaders()),
+                byte[].class
+            );
+            return parseTossJson(res.getBody());
+        } catch (HttpStatusCodeException e) {
+            throw tossException("결제 조회 실패", e);
+        }
+    }
+
+    private static void assertConfirmedPayment(JsonNode payment, String orderId, long amount) {
+        String status = payment.path("status").asText("");
+        if (!"DONE".equals(status)) {
+            if ("WAITING_FOR_DEPOSIT".equals(status)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "가상계좌 입금 대기는 포인트 충전에 사용할 수 없습니다. 카드 등 즉시 결제 수단으로 다시 진행해 주세요.");
+            }
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "결제가 완료되지 않았습니다. 상태: " + status);
+        }
+        String paidOrderId = payment.path("orderId").asText("");
+        if (!orderId.equals(paidOrderId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "주문번호가 결제 정보와 일치하지 않습니다.");
+        }
+        long paidAmount = payment.path("totalAmount").asLong(0);
+        if (paidAmount != amount) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "결제 금액이 주문 금액과 일치하지 않습니다.");
+        }
+    }
+
+    private JsonNode parseTossJson(byte[] body) {
+        try {
+            String responseBody = decodeUtf8Response(body);
+            return objectMapper.readTree(responseBody.isBlank() ? "{}" : responseBody);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "토스 응답을 확인하지 못했습니다.", e);
+        }
+    }
+
+    private String extractTossCode(HttpStatusCodeException e) {
+        try {
+            JsonNode root = parseTossJson(e.getResponseBodyAsByteArray());
+            return root.path("code").asText("");
+        } catch (Exception ignore) {
+            return "";
+        }
+    }
+
     private HttpHeaders tossHeaders() {
+        return tossAuthHeaders(tossSecretKey);
+    }
+
+    private HttpHeaders tossWidgetHeaders() {
+        return tossAuthHeaders(resolveWidgetSecretKey());
+    }
+
+    private HttpHeaders tossAuthHeaders(String secretKey) {
         HttpHeaders headers = new HttpHeaders();
-        String raw = tossSecretKey + ":";
+        String raw = secretKey + ":";
         String encoded = Base64.getEncoder().encodeToString(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         headers.set("Authorization", "Basic " + encoded);
         return headers;
+    }
+
+    private String resolveWidgetSecretKey() {
+        if (tossWidgetSecretKey != null && !tossWidgetSecretKey.isBlank()) {
+            return tossWidgetSecretKey.trim();
+        }
+        return tossSecretKey;
     }
 
     private void ensureTossSecretConfigured() {
         if (tossSecretKey == null || tossSecretKey.isBlank()) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "토스 시크릿 키가 설정되지 않았습니다.");
         }
+    }
+
+    private void ensureTossWidgetSecretConfigured() {
+        String key = resolveWidgetSecretKey();
+        if (key == null || key.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                "토스 결제위젯 시크릿 키(TOSS_PAYMENTS_WIDGET_SECRET_KEY)가 설정되지 않았습니다.");
+        }
+    }
+
+    private static String secretKind(String key) {
+        if (key == null || key.isBlank()) {
+            return "missing";
+        }
+        String k = key.trim();
+        int underscores = 0;
+        int cut = k.length();
+        for (int i = 0; i < k.length(); i++) {
+            if (k.charAt(i) == '_') {
+                underscores++;
+                if (underscores == 2) {
+                    cut = i;
+                    break;
+                }
+            }
+        }
+        return k.substring(0, cut);
     }
 
     private ResponseStatusException tossException(String prefix, HttpStatusCodeException e) {

@@ -6,7 +6,6 @@ import com.hiacademy.api.config.ExpoPushProperties;
 import com.hiacademy.api.entity.ParentPushToken;
 import com.hiacademy.api.entity.Student;
 import com.hiacademy.api.repository.ParentPushTokenRepository;
-import com.hiacademy.api.repository.ParentRepository;
 import com.hiacademy.api.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -30,7 +29,6 @@ public class ExpoPushService {
     private final ExpoPushProperties props;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
-    private final ParentRepository parentRepo;
     private final StudentRepository studentRepo;
     private final ParentPushTokenRepository pushTokenRepo;
 
@@ -39,61 +37,69 @@ public class ExpoPushService {
      * targets에 "전체"가 있거나 비어 있으면 학원 전체 학부모, 아니면 해당 반(classroom.name)에 속한 학생의 학부모.
      */
     public void sendNoticeCreated(Long academyId, Long noticeId, String title, String body, List<String> targets) {
+        sendTargetedPush(academyId, title != null ? title : "공지사항", body, targets, "notice", "noticeId", noticeId);
+    }
+
+    public void sendClassNoticeCreated(Long academyId, Long classNoticeId, String title, String body, List<String> targets) {
+        sendTargetedPush(academyId, title != null ? title : "클래스 알림장", body, targets, "class_notice", "classNoticeId", classNoticeId);
+    }
+
+    private void sendTargetedPush(
+        Long academyId, String title, String body, List<String> targets,
+        String type, String idKey, Long id
+    ) {
         if (!props.isEnabled()) {
-            log.debug("[ExpoPush] disabled, skip noticeId={}", noticeId);
+            log.debug("[ExpoPush] disabled, skip type={} id={}", type, id);
             return;
         }
-        Set<Long> parentIds = resolveParentIds(academyId, targets);
-        if (parentIds.isEmpty()) {
-            log.info("[ExpoPush] no parents for academyId={} noticeId={}", academyId, noticeId);
+        Set<Long> studentIds = resolveStudentIds(academyId, targets);
+        if (studentIds.isEmpty()) {
+            log.info("[ExpoPush] no students for academyId={} type={} id={}", academyId, type, id);
             return;
         }
-        List<ParentPushToken> tokens = pushTokenRepo.findAllByParent_IdIn(parentIds);
+        List<ParentPushToken> tokens = pushTokenRepo.findAllByStudent_IdIn(studentIds);
         if (tokens.isEmpty()) {
-            log.info("[ExpoPush] no push tokens for {} parents (academyId={} noticeId={})", parentIds.size(), academyId, noticeId);
+            log.info("[ExpoPush] no push tokens for {} students (academyId={} type={} id={})", studentIds.size(), academyId, type, id);
             return;
         }
         String preview = truncateBody(body);
         List<Map<String, Object>> messages = new ArrayList<>();
         for (ParentPushToken pt : tokens) {
-            // FCM(Android)은 data 값이 모두 문자열이어야 함 — 숫자 그대로 넣으면 티켓 error 가능
             Map<String, Object> data = new LinkedHashMap<>();
-            data.put("type", "notice");
-            data.put("noticeId", String.valueOf(noticeId));
+            data.put("type", type);
+            data.put(idKey, String.valueOf(id));
             data.put("academyId", String.valueOf(academyId));
 
             Map<String, Object> msg = new LinkedHashMap<>();
             msg.put("to", pt.getExpoPushToken());
-            msg.put("title", title != null ? title : "공지사항");
+            msg.put("title", title);
             msg.put("body", preview);
             msg.put("sound", "default");
             msg.put("priority", "high");
-            // channelId 생략 시 Expo가 기본 채널 생성(문서). "default" 지정은 앱에 채널이 없으면 표시 실패 가능
             msg.put("data", data);
             messages.add(msg);
         }
         sendBatches(messages);
     }
 
-    private Set<Long> resolveParentIds(Long academyId, List<String> targets) {
+    private Set<Long> resolveStudentIds(Long academyId, List<String> targets) {
+        List<Student> all = studentRepo.findAllByAcademyIdWithClassroom(academyId);
         if (isBroadcast(targets)) {
-            return new HashSet<>(parentRepo.findAllByAcademy_IdOrderByCreatedAtDesc(academyId).stream()
-                .map(p -> p.getId()).toList());
+            return all.stream().map(Student::getId).collect(java.util.stream.Collectors.toSet());
         }
         Set<String> wanted = new HashSet<>();
         for (String t : targets) {
             if (t != null && !t.isBlank()) wanted.add(t.trim());
         }
         if (wanted.isEmpty()) {
-            return new HashSet<>(parentRepo.findAllByAcademy_IdOrderByCreatedAtDesc(academyId).stream()
-                .map(p -> p.getId()).toList());
+            return all.stream().map(Student::getId).collect(java.util.stream.Collectors.toSet());
         }
         Set<Long> ids = new HashSet<>();
-        for (Student s : studentRepo.findAllByAcademyIdWithClassroom(academyId)) {
+        for (Student s : all) {
             if (s.getClassroom() == null) continue;
             String className = s.getClassroom().getName();
             if (className != null && wanted.contains(className)) {
-                ids.add(s.getParent().getId());
+                ids.add(s.getId());
             }
         }
         return ids;

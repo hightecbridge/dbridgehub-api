@@ -16,6 +16,8 @@ public class Academy {
     @Column(columnDefinition = "TEXT") private String description;
     private String phone;
     @Column(columnDefinition = "TEXT") private String logoBase64;
+    /** 학원별 메뉴·기능 사용 및 학부모 노출 설정(JSON) */
+    @Column(columnDefinition = "TEXT") private String menuSettingsJson;
     /** 臾대즺 泥댄뿕 醫낅즺 ?쒓컖 (媛????+30??. */
     private LocalDateTime trialEndsAt;
     /** ?좊즺 援щ룆 ?댁슜 留뚮즺 ?쒓컖(?붋룹뿰 寃곗젣 ???곗옣). */

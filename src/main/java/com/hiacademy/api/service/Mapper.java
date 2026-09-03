@@ -1,6 +1,7 @@
 package com.hiacademy.api.service;
 import com.hiacademy.api.dto.response.*;
 import com.hiacademy.api.entity.*;
+import com.hiacademy.api.menu.MenuSettings;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -25,11 +26,15 @@ class Mapper {
         if (a==null) return null;
         return AcademyInfo.builder().id(a.getId()).name(a.getName())
             .address(a.getAddress()).desc(a.getDescription())
-            .phone(a.getPhone()).logoBase64(a.getLogoBase64()).build();
+            .phone(a.getPhone()).logoBase64(a.getLogoBase64())
+            .menuSettings(MenuSettings.merge(a.getMenuSettingsJson()))
+            .build();
     }
     static ClassRoomResponse toClassRoom(ClassRoom c) {
         return ClassRoomResponse.builder().id(c.getId()).name(c.getName())
-            .subject(c.getSubject()).teacher(c.getTeacher()).schedule(c.getSchedule())
+            .subject(c.getSubject()).teacher(c.getTeacher())
+            .teacherUserId(c.getTeacherUser() != null ? c.getTeacherUser().getId() : null)
+            .schedule(c.getSchedule())
             .capacity(c.getCapacity()).tuitionFee(c.getTuitionFee()).bookFee(c.getBookFee())
             .color(c.getColor()).textColor(c.getTextColor()).createdAt(c.getCreatedAt()).build();
     }
@@ -51,9 +56,20 @@ class Mapper {
             .map(Mapper::toFee)
             .toList();
         return StudentResponse.builder().id(s.getId()).name(s.getName()).grade(s.getGrade())
+            .phone(s.getPhone())
+            .parentName(s.resolveParentName())
+            .parentPhone(s.resolveParentPhone())
+            .badgeColor(s.getBadgeColor() != null ? s.getBadgeColor()
+                : (s.getParent() != null ? s.getParent().getBadgeColor() : null))
+            .badgeTextColor(s.getBadgeTextColor() != null ? s.getBadgeTextColor()
+                : (s.getParent() != null ? s.getParent().getBadgeTextColor() : null))
+            .kakaoLinked(s.isKakaoLinked() || (s.getParent() != null && s.getParent().isKakaoLinked()))
+            .createdAt(s.getCreatedAt() != null ? s.getCreatedAt()
+                : (s.getParent() != null ? s.getParent().getCreatedAt() : null))
             .birthDate(s.getBirthDate()).status(s.getStatus()!=null?s.getStatus().name():null)
             .classroomId(s.getClassroom()!=null?s.getClassroom().getId():null)
             .classroomName(s.getClassroom()!=null?s.getClassroom().getName():null)
+            .withdrawnAt(s.getWithdrawnAt())
             .fees(fees).build();
     }
 
@@ -97,13 +113,71 @@ class Mapper {
     }
     static NoticeResponse toNotice(NoticeItem n) {
         String image = n.getImageData() != null ? n.getImageData() : n.getImageUrl();
-        // targets는 (환경에 따라) lazy proxy일 수 있어, 서비스 트랜잭션 종료 후
-        // JSON 직렬화 단계에서 "no Session" 예외가 날 수 있다.
         java.util.List<String> targets = n.getTargets() == null
             ? java.util.List.of("전체")
             : new java.util.ArrayList<>(n.getTargets());
+        java.util.List<NoticeAttachmentResponse> files = n.getAttachments() == null
+            ? java.util.List.of()
+            : n.getAttachments().stream()
+                .map(a -> NoticeAttachmentResponse.builder()
+                    .id(a.getId())
+                    .fileName(a.getFileName())
+                    .contentType(a.getContentType())
+                    .sizeBytes(a.getSizeBytes())
+                    .data(a.getData())
+                    .sortOrder(a.getSortOrder())
+                    .build())
+                .toList();
+        // 하위호환: files 중 첫 이미지가 있으면 imageUrl로도 노출
+        if ((image == null || image.isBlank()) && !files.isEmpty()) {
+            NoticeAttachmentResponse firstImage = files.stream()
+                .filter(f -> f.getContentType() != null && f.getContentType().startsWith("image/"))
+                .findFirst()
+                .orElse(files.get(0));
+            if (firstImage.getData() != null && (
+                firstImage.getContentType() == null
+                    || firstImage.getContentType().startsWith("image/")
+                    || firstImage.getData().startsWith("data:image/")
+            )) {
+                image = firstImage.getData();
+            }
+        }
         return NoticeResponse.builder().id(n.getId()).title(n.getTitle()).body(n.getBody())
-            .targets(targets).imageUrl(image)
+            .targets(targets).imageUrl(image).files(files)
+            .date(n.getDate()).createdAt(n.getCreatedAt()).build();
+    }
+    static NoticeResponse toClassNotice(ClassNotice n) {
+        String image = n.getImageData() != null ? n.getImageData() : n.getImageUrl();
+        java.util.List<String> targets = n.getTargets() == null
+            ? java.util.List.of("전체")
+            : new java.util.ArrayList<>(n.getTargets());
+        java.util.List<NoticeAttachmentResponse> files = n.getAttachments() == null
+            ? java.util.List.of()
+            : n.getAttachments().stream()
+                .map(a -> NoticeAttachmentResponse.builder()
+                    .id(a.getId())
+                    .fileName(a.getFileName())
+                    .contentType(a.getContentType())
+                    .sizeBytes(a.getSizeBytes())
+                    .data(a.getData())
+                    .sortOrder(a.getSortOrder())
+                    .build())
+                .toList();
+        if ((image == null || image.isBlank()) && !files.isEmpty()) {
+            NoticeAttachmentResponse firstImage = files.stream()
+                .filter(f -> f.getContentType() != null && f.getContentType().startsWith("image/"))
+                .findFirst()
+                .orElse(files.get(0));
+            if (firstImage.getData() != null && (
+                firstImage.getContentType() == null
+                    || firstImage.getContentType().startsWith("image/")
+                    || firstImage.getData().startsWith("data:image/")
+            )) {
+                image = firstImage.getData();
+            }
+        }
+        return NoticeResponse.builder().id(n.getId()).title(n.getTitle()).body(n.getBody())
+            .targets(targets).imageUrl(image).files(files)
             .date(n.getDate()).createdAt(n.getCreatedAt()).build();
     }
     static EventResponse toEvent(CalendarEvent e) {
@@ -118,10 +192,27 @@ class Mapper {
             .color(e.getColor()).allDay(e.isAllDay()).createdAt(e.getCreatedAt()).build();
     }
     static ConsultResponse toConsult(Consultation c) {
-        return ConsultResponse.builder().id(c.getId())
-            .studentId(c.getStudent().getId()).studentName(c.getStudent().getName())
-            .date(c.getConsultDate().toString()).time(c.getConsultTime())
-            .status(c.getStatus()!=null?c.getStatus().name():null)
-            .content(c.getContent()).createdAt(c.getCreatedAt()).build();
+        Student s = c.getStudent();
+        User t = c.getTeacher();
+        String kind = c.getKind() != null ? c.getKind().name() : ConsultKind.재원생.name();
+        return ConsultResponse.builder()
+            .id(c.getId())
+            .kind(kind)
+            .studentId(s != null ? s.getId() : null)
+            .studentName(c.displayName())
+            .studentStatus(s != null && s.getStatus() != null ? s.getStatus().name() : null)
+            .classroomName(s != null && s.getClassroom() != null ? s.getClassroom().getName() : null)
+            .teacherUserId(t != null ? t.getId() : null)
+            .teacherName(t != null ? t.getName() : null)
+            .date(c.getConsultDate().toString())
+            .time(c.getConsultTime())
+            .status(c.getStatus() != null ? c.getStatus().name() : null)
+            .content(c.getContent())
+            .prospectName(c.getProspectName())
+            .prospectPhone(c.getProspectPhone())
+            .prospectGrade(c.getProspectGrade())
+            .prospectParentName(c.getProspectParentName())
+            .createdAt(c.getCreatedAt())
+            .build();
     }
 }

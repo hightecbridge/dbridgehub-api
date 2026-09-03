@@ -14,5 +14,9 @@ public interface ParentPushTokenRepository extends JpaRepository<ParentPushToken
 
     List<ParentPushToken> findAllByParent_IdIn(Collection<Long> parentIds);
 
+    List<ParentPushToken> findAllByStudent_IdIn(Collection<Long> studentIds);
+
     void deleteAllByParent_Id(Long parentId);
+
+    void deleteAllByStudent_Id(Long studentId);
 }

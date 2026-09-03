@@ -14,8 +14,11 @@ public class ParentPushToken {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "parent_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "parent_id")
     private Parent parent;
+
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "student_id")
+    private Student student;
 
     /** DB 스키마 상 NOT NULL — 학부모와 동일 학원으로 유지 */
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "academy_id", nullable = false)

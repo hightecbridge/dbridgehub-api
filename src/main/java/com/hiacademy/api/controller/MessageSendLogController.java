@@ -7,6 +7,7 @@ import com.hiacademy.api.dto.response.MessageSendLogResponse;
 import com.hiacademy.api.dto.response.MessageSenderInfoResponse;
 import com.hiacademy.api.service.MessageSendLogService;
 import com.hiacademy.api.service.MessageSenderResolverService;
+import com.hiacademy.api.service.AdminAccessService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -19,10 +20,12 @@ import java.util.List;
 public class MessageSendLogController {
     private final MessageSendLogService svc;
     private final MessageSenderResolverService senderResolver;
+    private final AdminAccessService access;
 
-    public MessageSendLogController(MessageSendLogService svc, MessageSenderResolverService senderResolver) {
+    public MessageSendLogController(MessageSendLogService svc, MessageSenderResolverService senderResolver, AdminAccessService access) {
         this.svc = svc;
         this.senderResolver = senderResolver;
+        this.access = access;
     }
 
     @GetMapping("/sender")
@@ -39,6 +42,7 @@ public class MessageSendLogController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<MessageSendLogResponse> create(Authentication auth, @Valid @RequestBody MessageSendLogRequest req) {
+        access.requireDirector(auth);
         return ApiResponse.ok(svc.create(AuthHelper.academyId(auth), AuthHelper.subjectId(auth), req));
     }
 }

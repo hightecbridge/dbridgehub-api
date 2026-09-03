@@ -1,5 +1,7 @@
 package com.hiacademy.api.security;
+import com.hiacademy.api.entity.Academy;
 import com.hiacademy.api.entity.Parent;
+import com.hiacademy.api.entity.Student;
 import com.hiacademy.api.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
@@ -30,6 +32,16 @@ public class JwtUtil {
             .claim("role","PARENT").claim("type","parent")
             .claim("academyId", parent.getAcademy().getId())
             .issuedAt(new Date()).expiration(new Date(System.currentTimeMillis()+parentExpirationMs))
+            .signWith(key()).compact();
+    }
+
+    /** 학부모 앱 JWT — subject 는 대표 학생 id (students 테이블) */
+    public String generateGuardianToken(Student student) {
+        Academy academy = student.resolveAcademy();
+        return Jwts.builder().subject(student.getId().toString())
+            .claim("role", "PARENT").claim("type", "parent")
+            .claim("academyId", academy != null ? academy.getId() : null)
+            .issuedAt(new Date()).expiration(new Date(System.currentTimeMillis() + parentExpirationMs))
             .signWith(key()).compact();
     }
     public Claims parse(String token) {

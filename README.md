@@ -109,6 +109,19 @@ Authorization: Bearer {token}
 | POST   | `/api/academy/admin/classrooms/{cid}/homework` | 숙제 시트 저장 |
 | PATCH  | `/api/academy/admin/classrooms/{cid}/homework/{sheetId}/students/{studentId}` | 완료 체크 |
 
+### 성적 관리
+
+| Method | URL | 설명 |
+|--------|-----|------|
+| GET    | `/api/academy/admin/classrooms/{cid}/exams` | 시험 목록 (반 평균 포함) |
+| POST   | `/api/academy/admin/classrooms/{cid}/exams` | 시험 등록 |
+| GET    | `/api/academy/admin/classrooms/{cid}/exams/stats` | 반 평균·석차·추이 |
+| GET    | `/api/academy/admin/classrooms/{cid}/exams/{examId}` | 시험 상세·학생별 점수 |
+| PUT    | `/api/academy/admin/classrooms/{cid}/exams/{examId}` | 시험 정보 수정 |
+| DELETE | `/api/academy/admin/classrooms/{cid}/exams/{examId}` | 시험 삭제 |
+| PUT    | `/api/academy/admin/classrooms/{cid}/exams/{examId}/scores` | 학생별 점수 저장 |
+| GET    | `/api/academy/admin/students/{id}/grades` | 학생 성적 이력 (담당 반만) |
+
 ### 공지사항
 
 | Method | URL | 설명 |
@@ -116,6 +129,14 @@ Authorization: Bearer {token}
 | GET    | `/api/academy/admin/notices` | 공지 목록 |
 | POST   | `/api/academy/admin/notices` | 공지 생성 |
 | DELETE | `/api/academy/admin/notices/{id}` | 공지 삭제 |
+
+### 클래스 알림장
+
+| Method | URL | 설명 |
+|--------|-----|------|
+| GET    | `/api/academy/admin/class-notices` | 클래스 알림장 목록 |
+| POST   | `/api/academy/admin/class-notices` | 클래스 알림장 생성 |
+| DELETE | `/api/academy/admin/class-notices/{id}` | 클래스 알림장 삭제 |
 
 ### 일정
 
@@ -130,8 +151,15 @@ Authorization: Bearer {token}
 
 | Method | URL | 설명 |
 |--------|-----|------|
-| GET    | `/api/academy/admin/consultations` | 상담 목록 |
-| PATCH  | `/api/academy/admin/consultations/{id}/status?status=확정` | 상담 상태 변경 |
+| GET    | `/api/academy/admin/consultations?year=&month=&kind=` | 상담 목록 (재원생/신규) |
+| GET    | `/api/academy/admin/consultations/stats?year=&month=` | 월별·교사별·학생별 상담 건수 |
+| GET    | `/api/academy/admin/consultations/counselors` | 담당 상담교사 목록 |
+| GET    | `/api/academy/admin/consultations/students/{id}` | 학생별 상담 내역 |
+| POST   | `/api/academy/admin/consultations` | 상담 작성 |
+| PUT    | `/api/academy/admin/consultations/{id}` | 상담 수정 |
+| PATCH  | `/api/academy/admin/consultations/{id}/status?status=완료` | 상담 상태 변경 |
+| DELETE | `/api/academy/admin/consultations/{id}` | 상담 삭제 |
+| PATCH  | `/api/academy/admin/students/{id}/status` | 재원 상태 변경 (퇴원 처리) |
 
 ---
 
@@ -140,9 +168,10 @@ Authorization: Bearer {token}
 | Method | URL | 설명 |
 |--------|-----|------|
 | POST   | `/api/academy/parent/auth/login` | 학부모 로그인 (전화번호+비밀번호) |
-| GET    | `/api/academy/parent/home` | 홈 요약 (학원정보+자녀+공지+일정) |
-| GET    | `/api/academy/parent/students/{id}/attend` | 자녀 출석 기록 |
-| GET    | `/api/academy/parent/students/{id}/homework` | 자녀 숙제 기록 |
+| GET    | `/api/academy/parent/home` | 홈 요약 (학원정보+자녀+공지+클래스 알림장+최근 성적+일정) |
+| GET    | `/api/academy/parent/students/{id}/attend` | 자녀 출석 기록 (본인 자녀만) |
+| GET    | `/api/academy/parent/students/{id}/homework` | 자녀 숙제 기록 (본인 자녀만) |
+| GET    | `/api/academy/parent/students/{id}/grades` | 자녀 성적 이력 (본인 자녀만, 서버 검증) |
 | GET    | `/api/academy/parent/consultations` | 상담 목록 |
 | POST   | `/api/academy/parent/consultations` | 상담 신청 |
 | GET    | `/api/academy/parent/academy/{academyId}` | 학원 정보 (비인증) |
@@ -259,8 +288,13 @@ attend_sheets       — 출석 시트 (날짜×반)
 attend_records      — 출석 기록 (학생×시트)
 homework_sheets     — 숙제 시트 (날짜×반)
 homework_records    — 숙제 기록 (학생×시트)
+exams               — 시험
+exam_scores         — 학생별 점수
 notices             — 공지사항
 notice_targets      — 공지 대상 반
+class_notices       — 클래스 알림장
+class_notice_targets — 알림장 대상 반
+class_notice_attachments — 알림장 첨부파일
 calendar_events     — 일정
 event_targets       — 일정 대상 반
 consultations       — 상담

@@ -39,10 +39,12 @@ public class AdminAuthService {
         return build(user, academy);
     }
     public AuthResponse login(AdminLoginRequest req) {
-        User user = userRepo.findByEmail(req.getEmail())
-            .orElseThrow(()->new ResponseStatusException(HttpStatus.UNAUTHORIZED,"이메일 또는 비밀번호가 올바르지 않습니다."));
+        String loginId = req.getEmail() == null ? "" : req.getEmail().trim();
+        User user = userRepo.findByEmailIgnoreCase(loginId)
+            .or(() -> userRepo.findByEmail(loginId))
+            .orElseThrow(()->new ResponseStatusException(HttpStatus.UNAUTHORIZED,"아이디 또는 비밀번호가 올바르지 않습니다."));
         if (!encoder.matches(req.getPassword(), user.getPassword()))
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"이메일 또는 비밀번호가 올바르지 않습니다.");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"아이디 또는 비밀번호가 올바르지 않습니다.");
         return build(user, user.getAcademy());
     }
     public AuthResponse updateProfile(Long userId, UpdateProfileRequest req) {
@@ -51,7 +53,7 @@ public class AdminAuthService {
         if (req.getPhone()!=null)              user.setPhone(req.getPhone());
         if (req.getProfileImageBase64()!=null) user.setProfileImageBase64(req.getProfileImageBase64());
         Academy a = user.getAcademy();
-        if (a!=null) {
+        if (a!=null && user.getRole() == UserRole.ADMIN) {
             if (req.getAcademyName()!=null)       a.setName(req.getAcademyName());
             if (req.getAcademyAddress()!=null)     a.setAddress(req.getAcademyAddress());
             if (req.getAcademyDesc()!=null)        a.setDescription(req.getAcademyDesc());

@@ -27,5 +27,8 @@ public class NoticeItem {
     @Column(nullable = false) private String date;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "academy_id", nullable = false)
     private Academy academy;
+    @OneToMany(mappedBy = "notice", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sortOrder ASC, id ASC")
+    @Builder.Default private List<NoticeAttachment> attachments = new ArrayList<>();
     @CreationTimestamp private LocalDateTime createdAt;
 }

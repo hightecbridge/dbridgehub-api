@@ -3,6 +3,7 @@ import com.hiacademy.api.platform.ServicePaths;
 import com.hiacademy.api.dto.request.NoticeRequest;
 import com.hiacademy.api.dto.response.*;
 import com.hiacademy.api.service.NoticeService;
+import com.hiacademy.api.service.AdminAccessService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -12,7 +13,8 @@ import java.util.List;
 @RestController @RequestMapping(ServicePaths.ACADEMY + "/admin/notices")
 public class NoticeController {
     private final NoticeService svc;
-    public NoticeController(NoticeService svc) { this.svc=svc; }
+    private final AdminAccessService access;
+    public NoticeController(NoticeService svc, AdminAccessService access) { this.svc=svc; this.access=access; }
     @GetMapping
     public ApiResponse<NoticePageResponse> list(
         Authentication auth,
@@ -22,6 +24,13 @@ public class NoticeController {
         @RequestParam(required = false) String q
     ) { return ApiResponse.ok(svc.list(AuthHelper.academyId(auth), page, size, target, q)); }
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<NoticeResponse> create(Authentication auth, @Valid @RequestBody NoticeRequest req) { return ApiResponse.ok(svc.create(AuthHelper.academyId(auth),req)); }
-    @DeleteMapping("/{id}") public ApiResponse<Void> delete(Authentication auth, @PathVariable Long id) { svc.delete(AuthHelper.academyId(auth),id); return ApiResponse.noContent("삭제 완료"); }
+    public ApiResponse<NoticeResponse> create(Authentication auth, @Valid @RequestBody NoticeRequest req) {
+        access.requireDirector(auth);
+        return ApiResponse.ok(svc.create(AuthHelper.academyId(auth),req));
+    }
+    @DeleteMapping("/{id}") public ApiResponse<Void> delete(Authentication auth, @PathVariable Long id) {
+        access.requireDirector(auth);
+        svc.delete(AuthHelper.academyId(auth),id);
+        return ApiResponse.noContent("삭제 완료");
+    }
 }

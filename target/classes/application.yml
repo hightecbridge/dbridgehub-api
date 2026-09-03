@@ -93,4 +93,11 @@ logging:
 
 toss:
   payments:
-    secret-key: ${TOSS_PAYMENTS_SECRET_KEY:test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R}
+    # API 개별 연동(빌링키 발급·자동청구) — test_sk_ / live_sk_
+    #secret-key: ${TOSS_PAYMENTS_SECRET_KEY:test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R}
+    secret-key: ${TOSS_PAYMENTS_SECRET_KEY:live_sk_Ba5PzR0ArnBwWDP9xq91rvmYnNeD}
+    # 결제위젯(포인트 충전) 승인 — 프론트 gck 와 같은 상점의 test_gsk_ / live_gsk_
+    #widget-secret-key: ${TOSS_PAYMENTS_WIDGET_SECRET_KEY:test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6}
+    widget-secret-key: ${TOSS_PAYMENTS_WIDGET_SECRET_KEY:live_gsk_GjLJoQ1aVZapZmv0BwNd3w6KYe2R}
+
+

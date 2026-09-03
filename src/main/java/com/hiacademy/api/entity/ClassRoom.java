@@ -13,6 +13,8 @@ public class ClassRoom {
     @Column(nullable = false) private String name;
     @Column(nullable = false) private String subject;
     @Column(nullable = false) private String teacher;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "teacher_user_id")
+    private User teacherUser;
     private String schedule;
     private int capacity;
     private int tuitionFee;
