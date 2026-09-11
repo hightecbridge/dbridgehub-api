@@ -18,6 +18,8 @@ public class Academy {
     @Column(columnDefinition = "TEXT") private String logoBase64;
     /** 학원별 메뉴·기능 사용 및 학부모 노출 설정(JSON) */
     @Column(columnDefinition = "TEXT") private String menuSettingsJson;
+    /** 공휴일(법정·학원 휴일)을 출석일에서 제외하고 해당일 출석 체크를 생략 */
+    private Boolean excludeHolidaysFromAttend;
     /** 臾대즺 泥댄뿕 醫낅즺 ?쒓컖 (媛????+30??. */
     private LocalDateTime trialEndsAt;
     /** ?좊즺 援щ룆 ?댁슜 留뚮즺 ?쒓컖(?붋룹뿰 寃곗젣 ???곗옣). */
@@ -70,6 +72,8 @@ public class Academy {
     public void setTossAuthKey(String tossAuthKey) { this.tossAuthKey = tossAuthKey; }
     public Boolean getAutoBillingEnabled() { return autoBillingEnabled; }
     public void setAutoBillingEnabled(Boolean autoBillingEnabled) { this.autoBillingEnabled = autoBillingEnabled; }
+    public Boolean getExcludeHolidaysFromAttend() { return excludeHolidaysFromAttend; }
+    public void setExcludeHolidaysFromAttend(Boolean excludeHolidaysFromAttend) { this.excludeHolidaysFromAttend = excludeHolidaysFromAttend; }
     public LocalDateTime getBillingKeyIssuedAt() { return billingKeyIssuedAt; }
     public void setBillingKeyIssuedAt(LocalDateTime billingKeyIssuedAt) { this.billingKeyIssuedAt = billingKeyIssuedAt; }
 }

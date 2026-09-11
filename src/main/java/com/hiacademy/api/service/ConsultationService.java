@@ -43,11 +43,24 @@ public class ConsultationService {
     }
 
     @Transactional(readOnly = true)
-    public List<ConsultResponse> listByAcademy(Long academyId, Integer year, Integer month, String kind) {
-        List<Consultation> rows = (year != null && month != null)
-            ? consultRepo.findAllByAcademyIdAndDateBetween(academyId, monthStart(year, month), monthEnd(year, month))
-            : consultRepo.findAllByAcademyId(academyId);
+    public List<ConsultResponse> listByAcademy(Long academyId, Integer year, Integer month, String kind, String q) {
         ConsultKind filterKind = parseKindOrNull(kind);
+        String query = q == null ? "" : q.trim();
+        List<Consultation> rows;
+        if (!query.isEmpty()) {
+            String safe = query.replace("%", "").replace("_", "");
+            String digits = query.replaceAll("[^0-9]", "");
+            boolean searchPhone = digits.length() >= 3;
+            rows = consultRepo.searchByAcademyId(
+                academyId,
+                "%" + safe + "%",
+                "%" + digits + "%",
+                searchPhone);
+        } else if (year != null && month != null) {
+            rows = consultRepo.findAllByAcademyIdAndDateBetween(academyId, monthStart(year, month), monthEnd(year, month));
+        } else {
+            rows = consultRepo.findAllByAcademyId(academyId);
+        }
         return rows.stream()
             .filter(c -> filterKind == null || kindOf(c) == filterKind)
             .map(Mapper::toConsult)

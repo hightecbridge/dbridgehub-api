@@ -107,6 +107,51 @@ public class StudentAdminService {
         return Mapper.toStudent(studentRepo.findById(st.getId()).orElseThrow());
     }
 
+    public StudentResponse updateStudent(Authentication auth, Long studentId, StudentRequest req) {
+        AdminAccessService.Scope scope = access.resolve(auth);
+        Student st = studentRepo.findById(studentId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "학생을 찾을 수 없습니다."));
+        if (!belongsToAcademy(st, scope.academyId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+        scope.requireStudent(st);
+        scope.requireClassroom(req.getClassroomId());
+
+        Long academyId = scope.academyId();
+        String parentPhone = normalizePhone(req.getParentPhone());
+        if (parentPhone == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "학부모 전화번호를 올바르게 입력해 주세요.");
+        }
+        ClassRoom cls = clsRepo.findByIdAndAcademy_Id(req.getClassroomId(), academyId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "반을 찾을 수 없습니다."));
+
+        String oldParentPhone = st.getParentPhone();
+        st.setName(req.getName().trim());
+        st.setGrade(req.getGrade());
+        st.setBirthDate(req.getBirthDate());
+        st.setPhone(normalizePhone(req.getPhone()));
+        st.setParentName(req.getParentName().trim());
+        st.setParentPhone(parentPhone);
+        st.setClassroom(cls);
+
+        String requestedLogin = normalizePhone(req.getLoginPhone());
+        if (requestedLogin != null) {
+            st.setLoginPhone(requestedLogin);
+        } else if (st.getLoginPhone() == null || st.getLoginPhone().isBlank()
+                || st.getLoginPhone().equals(oldParentPhone)) {
+            st.setLoginPhone(parentPhone);
+        }
+
+        if (req.getLoginPassword() != null && !req.getLoginPassword().isBlank()) {
+            st.setLoginPassword(encoder.encode(req.getLoginPassword()));
+        }
+        if (req.getBadgeColor() != null) st.setBadgeColor(req.getBadgeColor());
+        if (req.getBadgeTextColor() != null) st.setBadgeTextColor(req.getBadgeTextColor());
+        if (req.getKakaoLinked() != null) st.setKakaoLinked(req.getKakaoLinked());
+        applyStatus(st, req.getStatus());
+        return Mapper.toStudent(studentRepo.save(st));
+    }
+
     public StudentResponse updateStatus(Authentication auth, Long studentId, String status) {
         AdminAccessService.Scope scope = access.resolve(auth);
         Student st = studentRepo.findById(studentId)
@@ -115,6 +160,12 @@ public class StudentAdminService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
         scope.requireStudent(st);
+        applyStatus(st, status);
+        return Mapper.toStudent(studentRepo.save(st));
+    }
+
+    private void applyStatus(Student st, String status) {
+        if (status == null || status.isBlank()) return;
         StudentStatus next;
         try {
             next = StudentStatus.valueOf(status.trim());
@@ -122,6 +173,7 @@ public class StudentAdminService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "재원 상태는 재원, 휴원, 퇴원 중 하나여야 합니다.");
         }
         StudentStatus prev = st.getStatus();
+        if (next == prev) return;
         if (next == StudentStatus.퇴원 && prev != StudentStatus.퇴원) {
             st.setWithdrawnAt(java.time.LocalDateTime.now());
         }
@@ -130,7 +182,6 @@ public class StudentAdminService {
             if (academy != null) assertStudentLimit(academy);
         }
         st.setStatus(next);
-        return Mapper.toStudent(studentRepo.save(st));
     }
 
     /** 학생은 삭제하지 않고 퇴원 처리하여 상담·수납 기록을 유지한다. */

@@ -28,6 +28,7 @@ class Mapper {
             .address(a.getAddress()).desc(a.getDescription())
             .phone(a.getPhone()).logoBase64(a.getLogoBase64())
             .menuSettings(MenuSettings.merge(a.getMenuSettingsJson()))
+            .excludeHolidaysFromAttend(Boolean.TRUE.equals(a.getExcludeHolidaysFromAttend()))
             .build();
     }
     static ClassRoomResponse toClassRoom(ClassRoom c) {
@@ -202,6 +203,8 @@ class Mapper {
             .studentName(c.displayName())
             .studentStatus(s != null && s.getStatus() != null ? s.getStatus().name() : null)
             .classroomName(s != null && s.getClassroom() != null ? s.getClassroom().getName() : null)
+            .parentName(s != null ? s.resolveParentName() : c.getProspectParentName())
+            .parentPhone(s != null ? s.resolveParentPhone() : c.getProspectPhone())
             .teacherUserId(t != null ? t.getId() : null)
             .teacherName(t != null ? t.getName() : null)
             .date(c.getConsultDate().toString())

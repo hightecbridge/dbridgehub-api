@@ -105,6 +105,7 @@ C:\project\api\src\main\java\com\hiacademy\api\dto\response\ConsultResponse.java
 C:\project\api\src\main\java\com\hiacademy\api\repository\AcademyRepository.java
 C:\project\api\src\main\java\com\sms\nhn\service\NhnSmsService.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\request\StudentStatusRequest.java
+C:\project\api\src\main\java\com\hiacademy\api\dto\response\AttendSettingsResponse.java
 C:\project\api\src\main\java\com\hiacademy\api\entity\ClassNotice.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\GradeHistoryResponse.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\MessageSendLogResponse.java
@@ -151,6 +152,7 @@ C:\project\api\src\main\java\com\hiacademy\api\dto\response\HomeworkSheetRespons
 C:\project\api\src\main\java\com\hiacademy\api\service\AdminBillingService.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\ClassRoomResponse.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\ExamStatsResponse.java
+C:\project\api\src\main\java\com\hiacademy\api\controller\AttendSettingsController.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\request\NoticeRequest.java
 C:\project\api\src\main\java\com\hiacademy\api\repository\NoticeRepository.java
 C:\project\api\src\main\java\com\hiacademy\api\service\TeacherAccountService.java
@@ -207,7 +209,9 @@ C:\project\api\src\main\java\com\sms\nhn\entity\SmsSendHistory.java
 C:\project\api\src\main\java\com\hiacademy\api\repository\AttendSheetRepository.java
 C:\project\api\src\main\java\com\hiacademy\api\billing\BillingPlanLimits.java
 C:\project\api\src\main\java\com\hiacademy\api\service\AttendService.java
+C:\project\api\src\main\java\com\hiacademy\api\attend\KoreanHolidays.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\ExamClassroomResponse.java
+C:\project\api\src\main\java\com\hiacademy\api\dto\request\AttendSettingsRequest.java
 C:\project\api\src\main\java\com\hiacademy\api\entity\Exam.java
 C:\project\api\src\main\java\com\hiacademy\api\controller\AuthHelper.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\response\NoticeAttachmentResponse.java
@@ -215,8 +219,10 @@ C:\project\api\src\main\java\com\hiacademy\api\entity\EventCategory.java
 C:\project\api\src\main\java\com\hiacademy\api\service\ParentPushTokenService.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\request\BillingPointChargeRequest.java
 C:\project\api\src\main\java\com\hiacademy\api\entity\ExamSection.java
+C:\project\api\src\main\java\com\hiacademy\api\service\AttendHolidayService.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\request\MessageSendLogRequest.java
 C:\project\api\src\main\java\com\hiacademy\api\service\ClassRoomService.java
+C:\project\api\src\main\java\com\hiacademy\api\schema\AttendSettingsSchemaInitializer.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\request\ClassRoomRequest.java
 C:\project\api\src\main\java\com\hiacademy\api\entity\HomepageConsult.java
 C:\project\api\src\main\java\com\hiacademy\api\dto\request\AttendSheetRequest.java

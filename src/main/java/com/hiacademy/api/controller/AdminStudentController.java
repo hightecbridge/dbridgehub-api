@@ -39,6 +39,14 @@ public class AdminStudentController {
         return ApiResponse.ok(svc.createStudent(auth, req));
     }
 
+    @PutMapping("/{studentId}")
+    public ApiResponse<StudentResponse> update(
+            Authentication auth,
+            @PathVariable Long studentId,
+            @Valid @RequestBody StudentRequest req) {
+        return ApiResponse.ok("학생 정보가 저장되었습니다.", svc.updateStudent(auth, studentId, req));
+    }
+
     @PatchMapping("/{studentId}/status")
     public ApiResponse<StudentResponse> updateStatus(
             Authentication auth,

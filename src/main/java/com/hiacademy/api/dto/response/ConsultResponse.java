@@ -13,6 +13,8 @@ public class ConsultResponse {
     private String studentName;
     private String studentStatus;
     private String classroomName;
+    private String parentName;
+    private String parentPhone;
     private Long teacherUserId;
     private String teacherName;
     private String date;

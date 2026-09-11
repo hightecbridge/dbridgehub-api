@@ -5,4 +5,5 @@ import java.util.Map;
     private Long id;
     private String name, address, desc, phone, logoBase64;
     private Map<String, MenuFeatureFlag> menuSettings;
+    private Boolean excludeHolidaysFromAttend;
 }

@@ -17,11 +17,12 @@ public interface ExamScoreRepository extends JpaRepository<ExamScore, Long> {
     Optional<ExamScore> findByExam_IdAndStudent_Id(Long examId, Long studentId);
 
     @Query("""
-        SELECT s FROM ExamScore s
+        SELECT DISTINCT s FROM ExamScore s
         JOIN FETCH s.exam e
-        JOIN FETCH e.classroom
-        JOIN FETCH s.student
-        WHERE s.student.id = :studentId
+        LEFT JOIN FETCH e.classroom
+        JOIN FETCH s.student st
+        LEFT JOIN FETCH st.classroom
+        WHERE st.id = :studentId
         ORDER BY e.examDate DESC, e.id DESC
         """)
     List<ExamScore> findAllByStudentIdWithExam(@Param("studentId") Long studentId);

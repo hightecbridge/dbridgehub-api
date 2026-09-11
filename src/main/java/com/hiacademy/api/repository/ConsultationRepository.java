@@ -47,6 +47,35 @@ public interface ConsultationRepository extends JpaRepository<Consultation, Long
 
     List<Consultation> findAllByStudent_IdOrderByConsultDateDescIdDesc(Long studentId);
 
+    @Query("""
+        SELECT DISTINCT c FROM Consultation c
+        LEFT JOIN c.student s
+        LEFT JOIN s.parent p
+        WHERE (c.academy.id = :academyId OR COALESCE(s.academy.id, p.academy.id) = :academyId)
+          AND (
+            LOWER(COALESCE(s.name, '')) LIKE LOWER(:namePattern)
+            OR LOWER(COALESCE(s.parentName, '')) LIKE LOWER(:namePattern)
+            OR LOWER(COALESCE(p.name, '')) LIKE LOWER(:namePattern)
+            OR LOWER(COALESCE(c.prospectName, '')) LIKE LOWER(:namePattern)
+            OR LOWER(COALESCE(c.prospectParentName, '')) LIKE LOWER(:namePattern)
+            OR (
+              :searchPhone = true AND (
+                COALESCE(s.parentPhone, '') LIKE :digitPattern
+                OR COALESCE(s.phone, '') LIKE :digitPattern
+                OR COALESCE(s.loginPhone, '') LIKE :digitPattern
+                OR COALESCE(p.phone, '') LIKE :digitPattern
+                OR REPLACE(COALESCE(c.prospectPhone, ''), '-', '') LIKE :digitPattern
+              )
+            )
+          )
+        ORDER BY c.consultDate DESC, c.id DESC
+        """)
+    List<Consultation> searchByAcademyId(
+        @Param("academyId") Long academyId,
+        @Param("namePattern") String namePattern,
+        @Param("digitPattern") String digitPattern,
+        @Param("searchPhone") boolean searchPhone);
+
     Optional<Consultation> findByIdAndAcademy_Id(Long id, Long academyId);
 
     void deleteAllByStudent_Id(Long studentId);

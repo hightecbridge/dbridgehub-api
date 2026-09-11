@@ -29,8 +29,9 @@ public class AdminConsultController {
             Authentication auth,
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer month,
-            @RequestParam(required = false) String kind) {
-        return ApiResponse.ok(svc.listByAcademy(AuthHelper.academyId(auth), year, month, kind));
+            @RequestParam(required = false) String kind,
+            @RequestParam(required = false) String q) {
+        return ApiResponse.ok(svc.listByAcademy(AuthHelper.academyId(auth), year, month, kind, q));
     }
 
     @GetMapping("/stats")

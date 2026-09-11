@@ -128,6 +128,7 @@ com\hiacademy\api\service\ClassNoticeService.class
 com\hiacademy\api\entity\ParentPushToken$ParentPushTokenBuilder.class
 com\hiacademy\api\controller\ParentPushController.class
 com\hiacademy\api\dto\response\ConsultResponse.class
+com\hiacademy\api\schema\AttendSettingsSchemaInitializer.class
 com\hiacademy\api\entity\ConsultStatus.class
 com\hiacademy\api\dto\response\ExamPageResponse.class
 com\hiacademy\api\config\ExpoPushProperties.class
@@ -158,6 +159,7 @@ com\hiacademy\api\dto\response\AuthResponse.class
 com\hiacademy\api\repository\ClassRoomRepository.class
 com\hiacademy\api\entity\ClassNotice.class
 com\hiacademy\api\dto\response\NoticePageResponse.class
+com\hiacademy\api\dto\response\AttendSettingsResponse.class
 com\hiacademy\api\dto\response\ExamStatsResponse.class
 com\hiacademy\api\dto\response\MessageSendLogResponse$MessageSendLogResponseBuilder.class
 com\hiacademy\api\entity\User$UserBuilder.class
@@ -189,6 +191,7 @@ com\sms\aligo\controller\AligoSmsController.class
 com\hiacademy\api\dto\response\GradeHistoryResponse.class
 com\hiacademy\api\entity\ClassRoom.class
 com\hiacademy\api\repository\AttendRecordRepository.class
+com\hiacademy\api\controller\AttendSettingsController.class
 com\hiacademy\api\dto\response\BillingPointChargePrepareResponse$BillingPointChargePrepareResponseBuilder.class
 com\hiacademy\api\entity\AttendRecord$AttendRecordBuilder.class
 com\hiacademy\api\dto\response\ExamStatsResponse$ClassBreakdown$ClassBreakdownBuilder.class
@@ -303,6 +306,7 @@ com\hiacademy\api\entity\ExamScore.class
 com\hiacademy\api\dto\response\BillingSummaryResponse$BillingSummaryResponseBuilder.class
 com\hiacademy\api\dto\response\DailyExamCalendarResponse$DayCount.class
 com\sms\nhn\entity\SmsSendHistory.class
+com\hiacademy\api\dto\request\AttendSettingsRequest.class
 com\hiacademy\api\dto\response\ExamScoreSectionResponse$ExamScoreSectionResponseBuilder.class
 com\hiacademy\api\entity\AttendRecord.class
 com\hiacademy\api\entity\FeeRecord$FeeRecordBuilder.class
@@ -324,6 +328,7 @@ com\sms\nhn\service\NhnSmsService.class
 com\hiacademy\api\dto\response\ExamClassroomResponse.class
 com\hiacademy\api\dto\response\ClassGradeStatsResponse$StudentRankRow.class
 com\hiacademy\api\controller\ParentHomeController.class
+com\hiacademy\api\attend\KoreanHolidays.class
 com\hiacademy\api\service\ParentPushTokenService.class
 com\ApiApplication.class
 com\hiacademy\api\entity\HomeworkRecord.class
@@ -333,10 +338,12 @@ com\hiacademy\api\dto\response\NoticeResponse.class
 com\sms\aligo\service\AligoSmsService$Base64Image.class
 com\hiacademy\api\controller\AdminRegularExamController.class
 com\hiacademy\api\dto\response\ClassRoomResponse$ClassRoomResponseBuilder.class
+com\hiacademy\api\dto\response\AttendSettingsResponse$AttendSettingsResponseBuilder.class
 com\hiacademy\api\dto\response\ClassGradeStatsResponse$StudentRankRow$StudentRankRowBuilder.class
 com\hiacademy\api\dto\request\PushTokenRequest.class
 com\hiacademy\api\dto\response\ConsultStatsResponse$DayItem.class
 com\hiacademy\api\dto\request\StudentRequest.class
+com\hiacademy\api\service\AttendHolidayService.class
 com\hiacademy\api\dto\request\AttendSheetRequest$AttendRecordItem.class
 com\hiacademy\api\menu\MenuSettings.class
 com\hiacademy\api\dto\request\HomepageConsultRequest.class

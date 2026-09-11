@@ -36,10 +36,10 @@ public class ParentHomeController {
     @GetMapping("/students/{studentId}/grades") public ApiResponse<GradeHistoryResponse> grades(Authentication auth, @PathVariable Long studentId) {
         Long academyId = AuthHelper.academyId(auth);
         menuSettings.requireAnyParentFeature(academyId, "examsRegular", "examsDaily");
-        var child = parentAccess.requireChild(auth, studentId);
+        parentAccess.requireChild(auth, studentId);
         boolean showRegular = menuSettings.parentVisible(academyId, "examsRegular");
         boolean showDaily = menuSettings.parentVisible(academyId, "examsDaily");
-        return ApiResponse.ok(gradeSvc.parentHistory(child, showRegular, showDaily));
+        return ApiResponse.ok(gradeSvc.parentHistory(studentId, showRegular, showDaily));
     }
     @GetMapping("/consultations") public ApiResponse<List<ConsultResponse>> consultations(Authentication auth) {
         menuSettings.requireParentFeature(AuthHelper.academyId(auth), "consult");

@@ -15,8 +15,9 @@ public class AttendService {
     private final AttendRecordRepository recordRepo;
     private final ClassRoomRepository    clsRepo;
     private final StudentRepository      stuRepo;
-    public AttendService(AttendSheetRepository s, AttendRecordRepository r, ClassRoomRepository c, StudentRepository st) {
-        sheetRepo=s; recordRepo=r; clsRepo=c; stuRepo=st;
+    private final AttendHolidayService   holidaySvc;
+    public AttendService(AttendSheetRepository s, AttendRecordRepository r, ClassRoomRepository c, StudentRepository st, AttendHolidayService h) {
+        sheetRepo=s; recordRepo=r; clsRepo=c; stuRepo=st; holidaySvc=h;
     }
     @Transactional(readOnly=true)
     public List<AttendSheetResponse> listSheets(Long academyId, Long classroomId) {
@@ -26,6 +27,10 @@ public class AttendService {
         ClassRoom cls = clsRepo.findByIdAndAcademy_Id(classroomId,academyId)
             .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
         LocalDate date = LocalDate.parse(req.getDate());
+        String skip = holidaySvc.skipReason(academyId, cls.getName(), date);
+        if (skip != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "공휴일(" + skip + ")에는 출석 체크를 하지 않습니다.");
+        }
         AttendSheet sheet = sheetRepo.findByClassroom_IdAndAttendDate(classroomId,date)
             .orElseGet(()->sheetRepo.save(AttendSheet.builder().classroom(cls).attendDate(date).build()));
         for (var item : req.getRecords()) {

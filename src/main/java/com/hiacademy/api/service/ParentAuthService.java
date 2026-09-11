@@ -219,7 +219,7 @@ public class ParentAuthService {
                 : 0;
             var recent = List.<GradeItemResponse>of();
             if (showRegularGrades || showDailyGrades) {
-                var grades = gradeSvc.parentHistory(st, showRegularGrades, showDailyGrades);
+                var grades = gradeSvc.parentHistory(st.getId(), showRegularGrades, showDailyGrades);
                 recent = grades.getItems() == null ? List.of() : grades.getItems().stream().limit(3).toList();
             }
             return ParentHomeResponse.StudentSummary.builder()

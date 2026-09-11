@@ -6,6 +6,7 @@ import com.hiacademy.api.dto.response.*;
 import com.hiacademy.api.entity.*;
 import com.hiacademy.api.repository.*;
 import org.hibernate.Hibernate;
+import org.hibernate.proxy.HibernateProxy;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -489,7 +490,17 @@ public class GradeService {
 
     @Transactional(readOnly = true)
     public GradeHistoryResponse parentHistory(Student child, boolean showRegular, boolean showDaily) {
-        GradeHistoryResponse history = buildHistory(child);
+        if (child == null || child.getId() == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "학생을 찾을 수 없습니다.");
+        }
+        return parentHistory(child.getId(), showRegular, showDaily);
+    }
+
+    @Transactional(readOnly = true)
+    public GradeHistoryResponse parentHistory(Long studentId, boolean showRegular, boolean showDaily) {
+        Student loaded = studentRepo.findByIdWithClassroom(studentId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "학생을 찾을 수 없습니다."));
+        GradeHistoryResponse history = buildHistory(loaded);
         if (history.getItems() != null) {
             history.getItems().forEach(it -> {
                 it.setRank(null);
@@ -525,11 +536,22 @@ public class GradeService {
     }
 
     private GradeHistoryResponse buildHistory(Student stu) {
-        List<ExamScore> mine = scoreRepo.findAllByStudentIdWithExam(stu.getId());
+        Long studentId = stu.getId();
+        Student loaded = studentRepo.findByIdWithClassroom(studentId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "학생을 찾을 수 없습니다."));
+        String studentClassName = resolveClassroomName(loaded.getClassroom());
+
+        List<ExamScore> mine = scoreRepo.findAllByStudentIdWithExam(studentId);
         mine.forEach(s -> {
-            Hibernate.initialize(s.getExam().getSections());
+            if (s.getExam() != null) {
+                Hibernate.initialize(s.getExam().getSections());
+            }
             Hibernate.initialize(s.getSectionScores());
-            s.getSectionScores().forEach(ss -> Hibernate.initialize(ss.getSection()));
+            if (s.getSectionScores() != null) {
+                s.getSectionScores().forEach(ss -> {
+                    if (ss.getSection() != null) Hibernate.initialize(ss.getSection());
+                });
+            }
         });
         List<Long> examIds = mine.stream().map(s -> s.getExam().getId()).toList();
         Map<Long, List<ExamScore>> byExam = examIds.isEmpty()
@@ -552,8 +574,7 @@ public class GradeService {
             Double delta = (mineScore != null && prevScore != null) ? round1(mineScore - prevScore) : null;
             Double vsAvg = (mineScore != null && st.avg != null) ? round1(mineScore - st.avg) : null;
             ExamKind kind = exam.getKind() == null ? ExamKind.CLASS : exam.getKind();
-            String className = stu.getClassroom() != null ? stu.getClassroom().getName()
-                : (exam.getClassroom() != null ? exam.getClassroom().getName() : null);
+            String className = studentClassName != null ? studentClassName : resolveClassroomName(exam.getClassroom());
             chronoItems.add(GradeItemResponse.builder()
                 .examId(exam.getId()).title(exam.getTitle())
                 .date(exam.getExamDate().toString())
@@ -563,7 +584,7 @@ public class GradeService {
                 .classroomName(className)
                 .score(mineScore).maxScore(exam.getMaxScore())
                 .classAvg(st.avg)
-                .rank(mineScore == null ? null : rankMap.get(stu.getId()))
+                .rank(mineScore == null ? null : rankMap.get(loaded.getId()))
                 .rankedCount(taken.size())
                 .delta(delta)
                 .vsClassAvg(vsAvg)
@@ -581,11 +602,31 @@ public class GradeService {
         Double latestDelta = newestFirst.stream().map(GradeItemResponse::getDelta).filter(Objects::nonNull).findFirst().orElse(null);
 
         return GradeHistoryResponse.builder()
-            .studentId(stu.getId()).studentName(stu.getName())
-            .classroomName(stu.getClassroom() != null ? stu.getClassroom().getName() : null)
+            .studentId(loaded.getId()).studentName(loaded.getName())
+            .classroomName(studentClassName)
             .examCount(takenMine.size()).average(avg).latestDelta(latestDelta)
             .items(newestFirst)
             .build();
+    }
+
+    /** 닫힌 세션의 ClassRoom 프록시를 건드리지 않고 반 이름을 읽는다. */
+    private String resolveClassroomName(ClassRoom room) {
+        Long id = classroomId(room);
+        if (id == null) return null;
+        if (Hibernate.isInitialized(room)) {
+            ClassRoom real = (ClassRoom) Hibernate.unproxy(room);
+            if (real != null && real.getName() != null) return real.getName();
+        }
+        return classRepo.findById(id).map(ClassRoom::getName).orElse(null);
+    }
+
+    private static Long classroomId(ClassRoom room) {
+        if (room == null) return null;
+        if (room instanceof HibernateProxy hp) {
+            Object id = hp.getHibernateLazyInitializer().getIdentifier();
+            return id instanceof Number n ? n.longValue() : null;
+        }
+        return room.getId();
     }
 
     private ClassRoom requireClass(AdminAccessService.Scope scope, Long classroomId) {
